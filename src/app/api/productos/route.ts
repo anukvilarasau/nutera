@@ -10,12 +10,13 @@ export async function POST(req: Request) {
       .select()
       .single()
     if (error) {
-      console.error('[POST /api/productos] Supabase error:', error)
+      console.error('[POST /api/productos] Supabase error:', JSON.stringify(error))
       return Response.json({ error: error.message }, { status: 400 })
     }
     return Response.json(data)
   } catch (e) {
-    console.error('[POST /api/productos] Unexpected error:', e)
-    return Response.json({ error: 'Error interno del servidor' }, { status: 500 })
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('[POST /api/productos] Error:', msg)
+    return Response.json({ error: msg }, { status: 500 })
   }
 }
