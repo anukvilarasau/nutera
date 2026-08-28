@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase'
-import type { Producto, Entrada, Venta, InventarioItem } from '@/lib/types'
+import type { Producto, Entrada, Venta, InventarioItem, VentaRentabilidad, ItemCosto } from '@/lib/types'
 
 // ─── PRODUCTOS ────────────────────────────────────────────────────────────────
 
@@ -77,6 +77,51 @@ export async function getInventario(): Promise<InventarioItem[]> {
     .order('codigo', { ascending: true })
   if (error) throw new Error(error.message)
   return data as InventarioItem[]
+}
+
+// ─── BALANCE ──────────────────────────────────────────────────────────────────
+
+export async function getBalance(): Promise<{
+  ventas: VentaRentabilidad[]
+  itemsCosto: ItemCosto[]
+}> {
+  const sb = createClient()
+
+  const [{ data: ventas, error: e1 }, { data: items, error: e2 }] = await Promise.all([
+    sb.from('venta_rentabilidad').select('*'),
+    sb
+      .from('venta_items')
+      .select('producto_id, cantidad, producto:productos(nombre, tipo, unidad, costo)'),
+  ])
+
+  if (e1) throw new Error(e1.message)
+  if (e2) throw new Error(e2.message)
+
+  // Agrupar items por producto para el desglose de costos
+  const map = new Map<string, ItemCosto>()
+  for (const row of items ?? []) {
+    const p = row.producto as unknown as { nombre: string; tipo: string; unidad: string; costo: number } | null
+    if (!p) continue
+    const existing = map.get(row.producto_id)
+    const costoLinea = p.costo * row.cantidad
+    if (existing) {
+      existing.cantidad_total += row.cantidad
+      existing.costo_total    += costoLinea
+    } else {
+      map.set(row.producto_id, {
+        producto_id:    row.producto_id,
+        nombre:         p.nombre,
+        tipo:           p.tipo,
+        unidad:         p.unidad,
+        cantidad_total: row.cantidad,
+        costo_total:    costoLinea,
+      })
+    }
+  }
+
+  const itemsCosto = [...map.values()].sort((a, b) => b.costo_total - a.costo_total)
+
+  return { ventas: (ventas ?? []) as VentaRentabilidad[], itemsCosto }
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────

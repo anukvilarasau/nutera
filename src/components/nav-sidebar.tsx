@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Package, Boxes, PackagePlus, PackageMinus } from 'lucide-react'
+import { LayoutDashboard, Package, Boxes, PackagePlus, PackageMinus, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV = [
@@ -11,6 +11,7 @@ const NAV = [
   { href: '/inventario', label: 'Inventario', icon: Boxes           },
   { href: '/entradas',   label: 'Entradas',   icon: PackagePlus     },
   { href: '/ventas',     label: 'Ventas',     icon: PackageMinus    },
+  { href: '/balance',    label: 'Balance',    icon: TrendingUp      },
 ]
 
 export default function NavSidebar() {

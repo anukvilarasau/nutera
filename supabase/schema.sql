@@ -76,6 +76,41 @@ LEFT JOIN venta_items vi ON vi.producto_id = p.id
 GROUP BY p.id, p.codigo, p.nombre, p.marca, p.tipo, p.unidad, p.costo, p.margen
 ORDER BY p.codigo;
 
+-- ── VISTA DE RENTABILIDAD ─────────────────────────────────────────────────────
+-- Una fila por venta con ingreso (productos), costo (todos los ítems) y ganancia
+
+CREATE OR REPLACE VIEW venta_rentabilidad AS
+SELECT
+  v.id,
+  v.fecha,
+  v.created_at,
+  -- Ingreso: suma de precio_unitario * cantidad solo para ítems con precio
+  COALESCE(SUM(vi.precio_unitario * vi.cantidad) FILTER (WHERE vi.precio_unitario IS NOT NULL), 0) AS ingreso,
+  -- Costo: suma de costo * cantidad para todos los ítems (productos + insumos)
+  COALESCE(SUM(p.costo * vi.cantidad), 0) AS costo,
+  -- Ganancia neta
+  COALESCE(SUM(vi.precio_unitario * vi.cantidad) FILTER (WHERE vi.precio_unitario IS NOT NULL), 0)
+    - COALESCE(SUM(p.costo * vi.cantidad), 0) AS ganancia,
+  -- Margen porcentual (NULL si ingreso = 0)
+  CASE
+    WHEN COALESCE(SUM(vi.precio_unitario * vi.cantidad) FILTER (WHERE vi.precio_unitario IS NOT NULL), 0) = 0
+    THEN NULL
+    ELSE ROUND(
+      (
+        COALESCE(SUM(vi.precio_unitario * vi.cantidad) FILTER (WHERE vi.precio_unitario IS NOT NULL), 0)
+        - COALESCE(SUM(p.costo * vi.cantidad), 0)
+      )
+      / COALESCE(SUM(vi.precio_unitario * vi.cantidad) FILTER (WHERE vi.precio_unitario IS NOT NULL), 1)
+      * 100,
+      2
+    )
+  END AS margen_pct
+FROM ventas v
+JOIN venta_items vi ON vi.venta_id = v.id
+JOIN productos   p  ON p.id        = vi.producto_id
+GROUP BY v.id, v.fecha, v.created_at
+ORDER BY v.fecha DESC, v.created_at DESC;
+
 -- ── FUNCIONES ─────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION get_next_codigo(p_tipo TEXT DEFAULT 'Producto')

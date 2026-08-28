@@ -51,6 +51,26 @@ export interface Venta {
   items: VentaItem[]
 }
 
+export interface VentaRentabilidad {
+  id: string
+  fecha: string
+  created_at: string
+  ingreso: number
+  costo: number
+  ganancia: number
+  margen_pct: number | null
+}
+
+// Para el desglose "top costos del período"
+export interface ItemCosto {
+  producto_id: string
+  nombre: string
+  tipo: string
+  unidad: string
+  cantidad_total: number
+  costo_total: number
+}
+
 export interface InventarioItem {
   id: string
   codigo: number
