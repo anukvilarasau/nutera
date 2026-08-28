@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useTransition, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -17,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
-import { createProducto, updateProducto, deleteProducto } from '@/lib/actions'
+import { createProducto, updateProducto, deleteProducto } from '@/lib/client-api'
 import type { Producto } from '@/lib/types'
 import type { SubmitHandler } from 'react-hook-form'
 
@@ -42,8 +41,8 @@ function formatARS(n: number) {
 }
 
 export default function ProductosClient({ initialProductos }: { initialProductos: Producto[] }) {
-  const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [productos, setProductos] = useState<Producto[]>(initialProductos)
   const [search, setSearch] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -61,7 +60,7 @@ export default function ProductosClient({ initialProductos }: { initialProductos
 
   // Calcula el próximo código disponible en base a los productos ya cargados
   function nextCodigo(t: 'Producto' | 'Insumo') {
-    const same = initialProductos.filter(p => p.tipo === t)
+    const same = productos.filter(p => p.tipo === t)
     if (same.length === 0) return t === 'Insumo' ? 500 : 100
     return Math.max(...same.map(p => p.codigo)) + 1
   }
@@ -74,8 +73,7 @@ export default function ProductosClient({ initialProductos }: { initialProductos
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tipo, editProducto, dialogOpen])
 
-  const filtered = initialProductos
-    .filter(p => {
+  const filtered = productos.filter(p => {
       const q = search.toLowerCase()
       return p.nombre.toLowerCase().includes(q) || p.codigo.toString().includes(q)
     })
@@ -107,13 +105,16 @@ export default function ProductosClient({ initialProductos }: { initialProductos
       try {
         if (editProducto) {
           await updateProducto(editProducto.id, payload)
+          setProductos(prev => prev.map(p =>
+            p.id === editProducto.id ? { ...p, ...payload } : p
+          ))
           toast.success('Producto actualizado')
         } else {
-          await createProducto(payload)
+          const created = await createProducto(payload)
+          setProductos(prev => [...prev, created].sort((a, b) => a.codigo - b.codigo))
           toast.success('Producto creado')
         }
         setDialogOpen(false)
-        router.refresh()
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Error al guardar')
       }
@@ -126,9 +127,9 @@ export default function ProductosClient({ initialProductos }: { initialProductos
     startTransition(async () => {
       try {
         await deleteProducto(id)
+        setProductos(prev => prev.filter(p => p.id !== id))
         toast.success('Producto eliminado')
         setDeleteId(null)
-        router.refresh()
       } catch {
         toast.error('Error al eliminar')
       }

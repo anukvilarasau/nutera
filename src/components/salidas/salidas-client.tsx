@@ -19,7 +19,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
-import { createSalida, deleteSalida } from '@/lib/actions'
+import { createSalida, deleteSalida } from '@/lib/client-api'
 import type { Producto, Salida, InventarioItem } from '@/lib/types'
 
 const schema = z.object({

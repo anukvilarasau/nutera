@@ -18,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { cn } from '@/lib/utils'
 
-import { createEntrada, deleteEntrada } from '@/lib/actions'
+import { createEntrada, deleteEntrada } from '@/lib/client-api'
 import type { Producto, Entrada } from '@/lib/types'
 
 const schema = z.object({
