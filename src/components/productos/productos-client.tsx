@@ -62,7 +62,7 @@ export default function ProductosClient({ initialProductos }: { initialProductos
   // Auto-generar código al cambiar tipo (solo en modo creación)
   useEffect(() => {
     if (!editProducto && dialogOpen) {
-      getNextCodigo(tipo).then(code => setValue('codigo', code))
+      getNextCodigo(tipo).then(code => setValue('codigo', code)).catch(() => null)
     }
   }, [tipo, editProducto, dialogOpen])
 
@@ -76,7 +76,7 @@ export default function ProductosClient({ initialProductos }: { initialProductos
     reset({ codigo: 100, tipo: 'Producto', nombre: '', marca: '', unidad: 'ud', costo: 0, margen: 15 })
     setEditProducto(null)
     setDialogOpen(true)
-    getNextCodigo('Producto').then(code => setValue('codigo', code))
+    getNextCodigo('Producto').then(code => setValue('codigo', code)).catch(() => null)
   }
 
   function openEdit(p: Producto) {
