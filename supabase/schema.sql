@@ -1,43 +1,44 @@
 -- ============================================
 -- NUTERA - Schema de base de datos Supabase
 -- Ejecutar en el SQL Editor de Supabase
+-- Idempotente: se puede correr más de una vez sin errores
 -- ============================================
 
--- Tabla de productos e insumos
+-- ── TABLAS ────────────────────────────────────────────────────────────────────
+
 CREATE TABLE IF NOT EXISTS productos (
-  id          UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  codigo      INTEGER     NOT NULL UNIQUE,
-  tipo        TEXT        NOT NULL DEFAULT 'Producto' CHECK (tipo IN ('Producto', 'Insumo')),
-  nombre      TEXT        NOT NULL,
-  marca       TEXT        NOT NULL DEFAULT '',
-  unidad      TEXT        NOT NULL DEFAULT 'ud',
+  id          UUID           DEFAULT gen_random_uuid() PRIMARY KEY,
+  codigo      INTEGER        NOT NULL UNIQUE,
+  tipo        TEXT           NOT NULL DEFAULT 'Producto' CHECK (tipo IN ('Producto', 'Insumo')),
+  nombre      TEXT           NOT NULL,
+  marca       TEXT           NOT NULL DEFAULT '',
+  unidad      TEXT           NOT NULL DEFAULT 'ud',
   costo       NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (costo >= 0),
   margen      NUMERIC(5, 4)  NOT NULL DEFAULT 0.15 CHECK (margen >= 0),
-  created_at  TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-  updated_at  TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  created_at  TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ    NOT NULL DEFAULT NOW()
 );
 
--- Tabla de entradas de stock (compras / recepción)
 CREATE TABLE IF NOT EXISTS entradas (
-  id             UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  producto_id    UUID        NOT NULL REFERENCES productos(id) ON DELETE CASCADE,
-  fecha          DATE        NOT NULL DEFAULT CURRENT_DATE,
+  id             UUID           DEFAULT gen_random_uuid() PRIMARY KEY,
+  producto_id    UUID           NOT NULL REFERENCES productos(id) ON DELETE CASCADE,
+  fecha          DATE           NOT NULL DEFAULT CURRENT_DATE,
   cantidad       NUMERIC(12, 3) NOT NULL CHECK (cantidad > 0),
   costo_unitario NUMERIC(12, 2) NOT NULL DEFAULT 0,
-  created_at     TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  created_at     TIMESTAMPTZ    NOT NULL DEFAULT NOW()
 );
 
--- Tabla de salidas de stock (ventas / consumo)
 CREATE TABLE IF NOT EXISTS salidas (
-  id               UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  producto_id      UUID        NOT NULL REFERENCES productos(id) ON DELETE CASCADE,
-  fecha            DATE        NOT NULL DEFAULT CURRENT_DATE,
+  id               UUID           DEFAULT gen_random_uuid() PRIMARY KEY,
+  producto_id      UUID           NOT NULL REFERENCES productos(id) ON DELETE CASCADE,
+  fecha            DATE           NOT NULL DEFAULT CURRENT_DATE,
   cantidad         NUMERIC(12, 3) NOT NULL CHECK (cantidad > 0),
   precio_unitario  NUMERIC(12, 2) NOT NULL DEFAULT 0,
-  created_at       TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  created_at       TIMESTAMPTZ    NOT NULL DEFAULT NOW()
 );
 
--- Vista de inventario calculado automáticamente
+-- ── VISTA DE INVENTARIO ───────────────────────────────────────────────────────
+
 CREATE OR REPLACE VIEW inventario_view AS
 SELECT
   p.id,
@@ -48,16 +49,13 @@ SELECT
   p.unidad,
   p.costo,
   p.margen,
-  ROUND(p.costo * (1 + p.margen), 2)               AS precio_venta,
-  COALESCE(SUM(e.cantidad), 0)::NUMERIC             AS total_entradas,
-  COALESCE(SUM(s.cantidad), 0)::NUMERIC             AS total_salidas,
-  (COALESCE(SUM(e.cantidad), 0)
-   - COALESCE(SUM(s.cantidad), 0))::NUMERIC         AS stock_total,
+  ROUND(p.costo * (1 + p.margen), 2)                       AS precio_venta,
+  COALESCE(SUM(e.cantidad), 0)::NUMERIC                     AS total_entradas,
+  COALESCE(SUM(s.cantidad), 0)::NUMERIC                     AS total_salidas,
+  (COALESCE(SUM(e.cantidad), 0) - COALESCE(SUM(s.cantidad), 0))::NUMERIC AS stock_total,
   CASE
-    WHEN (COALESCE(SUM(e.cantidad), 0) - COALESCE(SUM(s.cantidad), 0)) <= 0
-      THEN 'agotado'
-    WHEN (COALESCE(SUM(e.cantidad), 0) - COALESCE(SUM(s.cantidad), 0)) <= 5
-      THEN 'bajo'
+    WHEN (COALESCE(SUM(e.cantidad), 0) - COALESCE(SUM(s.cantidad), 0)) <= 0 THEN 'agotado'
+    WHEN (COALESCE(SUM(e.cantidad), 0) - COALESCE(SUM(s.cantidad), 0)) <= 5 THEN 'bajo'
     ELSE 'disponible'
   END AS estado
 FROM productos p
@@ -66,7 +64,8 @@ LEFT JOIN salidas  s ON s.producto_id = p.id
 GROUP BY p.id, p.codigo, p.nombre, p.marca, p.tipo, p.unidad, p.costo, p.margen
 ORDER BY p.codigo;
 
--- Función para obtener el próximo código disponible según tipo
+-- ── FUNCIONES ─────────────────────────────────────────────────────────────────
+
 CREATE OR REPLACE FUNCTION get_next_codigo(p_tipo TEXT DEFAULT 'Producto')
 RETURNS INTEGER AS $$
 DECLARE
@@ -85,7 +84,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Trigger: mantener updated_at actualizado
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -94,49 +92,43 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- ── TRIGGERS ──────────────────────────────────────────────────────────────────
+
+-- DROP antes de CREATE para que sea idempotente (CREATE TRIGGER no tiene IF NOT EXISTS)
+DROP TRIGGER IF EXISTS productos_updated_at ON productos;
 CREATE TRIGGER productos_updated_at
   BEFORE UPDATE ON productos
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- Índices para búsqueda rápida
-CREATE INDEX IF NOT EXISTS idx_productos_codigo     ON productos(codigo);
-CREATE INDEX IF NOT EXISTS idx_productos_nombre     ON productos USING gin(to_tsvector('spanish', nombre));
-CREATE INDEX IF NOT EXISTS idx_productos_tipo       ON productos(tipo);
-CREATE INDEX IF NOT EXISTS idx_entradas_producto    ON entradas(producto_id);
-CREATE INDEX IF NOT EXISTS idx_entradas_fecha       ON entradas(fecha);
-CREATE INDEX IF NOT EXISTS idx_salidas_producto     ON salidas(producto_id);
-CREATE INDEX IF NOT EXISTS idx_salidas_fecha        ON salidas(fecha);
+-- ── ÍNDICES ───────────────────────────────────────────────────────────────────
 
--- ============================================
--- ROW LEVEL SECURITY (RLS)
--- ============================================
--- La app no tiene autenticación de usuarios: el cliente usa la anon key.
--- Supabase habilita RLS por defecto en todos los proyectos nuevos.
--- Sin policies explícitas, el rol "anon" no puede leer ni escribir nada.
--- Las policies de abajo otorgan acceso completo al rol "anon" en las tres
--- tablas. La vista inventario_view hereda los permisos de las tablas base.
+CREATE INDEX IF NOT EXISTS idx_productos_codigo  ON productos(codigo);
+CREATE INDEX IF NOT EXISTS idx_productos_tipo    ON productos(tipo);
+CREATE INDEX IF NOT EXISTS idx_productos_nombre  ON productos USING gin(to_tsvector('spanish', nombre));
+CREATE INDEX IF NOT EXISTS idx_entradas_producto ON entradas(producto_id);
+CREATE INDEX IF NOT EXISTS idx_entradas_fecha    ON entradas(fecha);
+CREATE INDEX IF NOT EXISTS idx_salidas_producto  ON salidas(producto_id);
+CREATE INDEX IF NOT EXISTS idx_salidas_fecha     ON salidas(fecha);
+
+-- ── ROW LEVEL SECURITY ────────────────────────────────────────────────────────
+-- La app es de uso interno sin autenticación de usuarios.
+-- El cliente usa siempre la anon key de Supabase.
+-- Supabase habilita RLS por defecto en proyectos nuevos: sin policies,
+-- el rol "anon" no puede leer ni escribir nada.
+-- La vista inventario_view hereda los permisos de las tablas base (no necesita policy propia).
 
 ALTER TABLE productos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE entradas  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE salidas   ENABLE ROW LEVEL SECURITY;
 
--- productos
-DROP POLICY IF EXISTS "anon_all_productos" ON productos;
-CREATE POLICY "anon_all_productos" ON productos
-  FOR ALL TO anon
-  USING (true)
-  WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo" ON productos;
+CREATE POLICY "Permitir todo" ON productos
+  FOR ALL TO anon USING (true) WITH CHECK (true);
 
--- entradas
-DROP POLICY IF EXISTS "anon_all_entradas" ON entradas;
-CREATE POLICY "anon_all_entradas" ON entradas
-  FOR ALL TO anon
-  USING (true)
-  WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo" ON entradas;
+CREATE POLICY "Permitir todo" ON entradas
+  FOR ALL TO anon USING (true) WITH CHECK (true);
 
--- salidas
-DROP POLICY IF EXISTS "anon_all_salidas" ON salidas;
-CREATE POLICY "anon_all_salidas" ON salidas
-  FOR ALL TO anon
-  USING (true)
-  WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo" ON salidas;
+CREATE POLICY "Permitir todo" ON salidas
+  FOR ALL TO anon USING (true) WITH CHECK (true);
