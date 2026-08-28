@@ -7,14 +7,16 @@ export async function DELETE(
   try {
     const { id } = await params
     const sb = createClient()
-    const { error } = await sb.from('salidas').delete().eq('id', id)
+    // venta_items se eliminan en CASCADE
+    const { error } = await sb.from('ventas').delete().eq('id', id)
     if (error) {
-      console.error('[DELETE /api/salidas/[id]] Supabase error:', error)
+      console.error('[DELETE /api/ventas/[id]] Supabase error:', error)
       return Response.json({ error: error.message }, { status: 400 })
     }
     return Response.json({ ok: true })
   } catch (e) {
-    console.error('[DELETE /api/salidas/[id]] Unexpected error:', e)
-    return Response.json({ error: 'Error interno del servidor' }, { status: 500 })
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('[DELETE /api/ventas/[id]] Unexpected error:', msg)
+    return Response.json({ error: msg }, { status: 500 })
   }
 }

@@ -1,4 +1,4 @@
-import type { Producto } from '@/lib/types'
+import type { Producto, Venta } from '@/lib/types'
 
 async function apiFetch<T>(url: string, init: RequestInit): Promise<T> {
   const res = await fetch(url, init)
@@ -63,21 +63,23 @@ export function deleteEntrada(id: string): Promise<void> {
   return apiFetch(`/api/entradas/${id}`, { method: 'DELETE' })
 }
 
-// ─── SALIDAS ──────────────────────────────────────────────────────────────────
+// ─── VENTAS ───────────────────────────────────────────────────────────────────
 
-export function createSalida(payload: {
-  producto_id: string
+export function createVenta(payload: {
   fecha: string
-  cantidad: number
-  precio_unitario: number
-}): Promise<void> {
-  return apiFetch('/api/salidas', {
+  items: Array<{
+    producto_id: string
+    cantidad: number
+    precio_unitario: number | null
+  }>
+}): Promise<Venta> {
+  return apiFetch('/api/ventas', {
     method: 'POST',
     headers: JSON_HEADERS,
     body: JSON.stringify(payload),
   })
 }
 
-export function deleteSalida(id: string): Promise<void> {
-  return apiFetch(`/api/salidas/${id}`, { method: 'DELETE' })
+export function deleteVenta(id: string): Promise<void> {
+  return apiFetch(`/api/ventas/${id}`, { method: 'DELETE' })
 }

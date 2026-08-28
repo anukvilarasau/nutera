@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase'
-import type { Producto, Entrada, Salida, InventarioItem } from '@/lib/types'
+import type { Producto, Entrada, Venta, InventarioItem } from '@/lib/types'
 
 // ─── PRODUCTOS ────────────────────────────────────────────────────────────────
 
@@ -20,7 +20,6 @@ export async function getNextCodigo(tipo: 'Producto' | 'Insumo'): Promise<number
   const { data, error } = await sb.rpc('get_next_codigo', { p_tipo: tipo })
   if (!error && data) return data as number
 
-  // Fallback manual si la función RPC no está disponible
   const { data: rows } = await sb
     .from('productos')
     .select('codigo')
@@ -32,40 +31,6 @@ export async function getNextCodigo(tipo: 'Producto' | 'Insumo'): Promise<number
   if (tipo === 'Insumo' && next < 500) return 500
   if (tipo === 'Producto' && next < 100) return 100
   return next
-}
-
-export async function createProducto(payload: {
-  codigo: number
-  tipo: 'Producto' | 'Insumo'
-  nombre: string
-  marca: string
-  unidad: string
-  costo: number
-  margen: number
-}): Promise<Producto> {
-  const sb = createClient()
-  const { data, error } = await sb
-    .from('productos')
-    .insert(payload)
-    .select()
-    .single()
-  if (error) throw new Error(error.message)
-  return data as Producto
-}
-
-export async function updateProducto(
-  id: string,
-  payload: Partial<Omit<Producto, 'id' | 'created_at' | 'updated_at'>>,
-): Promise<void> {
-  const sb = createClient()
-  const { error } = await sb.from('productos').update(payload).eq('id', id)
-  if (error) throw new Error(error.message)
-}
-
-export async function deleteProducto(id: string): Promise<void> {
-  const sb = createClient()
-  const { error } = await sb.from('productos').delete().eq('id', id)
-  if (error) throw new Error(error.message)
 }
 
 // ─── ENTRADAS ─────────────────────────────────────────────────────────────────
@@ -82,52 +47,24 @@ export async function getEntradas(): Promise<Entrada[]> {
   return data as Entrada[]
 }
 
-export async function createEntrada(payload: {
-  producto_id: string
-  fecha: string
-  cantidad: number
-  costo_unitario: number
-}): Promise<void> {
-  const sb = createClient()
-  const { error } = await sb.from('entradas').insert(payload)
-  if (error) throw new Error(error.message)
-}
+// ─── VENTAS ───────────────────────────────────────────────────────────────────
 
-export async function deleteEntrada(id: string): Promise<void> {
-  const sb = createClient()
-  const { error } = await sb.from('entradas').delete().eq('id', id)
-  if (error) throw new Error(error.message)
-}
-
-// ─── SALIDAS ──────────────────────────────────────────────────────────────────
-
-export async function getSalidas(): Promise<Salida[]> {
+export async function getVentas(): Promise<Venta[]> {
   const sb = createClient()
   const { data, error } = await sb
-    .from('salidas')
-    .select('*, producto:productos(codigo, nombre, unidad)')
+    .from('ventas')
+    .select(`
+      *,
+      items:venta_items(
+        *,
+        producto:productos(codigo, nombre, unidad, tipo)
+      )
+    `)
     .order('fecha', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(300)
   if (error) throw new Error(error.message)
-  return data as Salida[]
-}
-
-export async function createSalida(payload: {
-  producto_id: string
-  fecha: string
-  cantidad: number
-  precio_unitario: number
-}): Promise<void> {
-  const sb = createClient()
-  const { error } = await sb.from('salidas').insert(payload)
-  if (error) throw new Error(error.message)
-}
-
-export async function deleteSalida(id: string): Promise<void> {
-  const sb = createClient()
-  const { error } = await sb.from('salidas').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+  return data as Venta[]
 }
 
 // ─── INVENTARIO ───────────────────────────────────────────────────────────────

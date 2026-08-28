@@ -28,18 +28,27 @@ export interface Entrada {
   } | null
 }
 
-export interface Salida {
+export interface VentaItem {
   id: string
+  venta_id: string
   producto_id: string
-  fecha: string
   cantidad: number
-  precio_unitario: number
+  precio_unitario: number | null  // null = insumo (no se cobra)
   created_at: string
   producto: {
     codigo: number
     nombre: string
     unidad: string
+    tipo: string
   } | null
+}
+
+export interface Venta {
+  id: string
+  fecha: string
+  total: number
+  created_at: string
+  items: VentaItem[]
 }
 
 export interface InventarioItem {

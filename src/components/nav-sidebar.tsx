@@ -10,7 +10,7 @@ const NAV = [
   { href: '/productos',  label: 'Productos',  icon: Package         },
   { href: '/inventario', label: 'Inventario', icon: Boxes           },
   { href: '/entradas',   label: 'Entradas',   icon: PackagePlus     },
-  { href: '/salidas',    label: 'Salidas',    icon: PackageMinus    },
+  { href: '/ventas',     label: 'Ventas',     icon: PackageMinus    },
 ]
 
 export default function NavSidebar() {
