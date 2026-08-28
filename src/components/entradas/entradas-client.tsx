@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -45,8 +44,8 @@ export default function EntradasClient({
   productos: Producto[]
   entradas: Entrada[]
 }) {
-  const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [listaEntradas, setListaEntradas] = useState<Entrada[]>(entradas)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [comboOpen, setComboOpen] = useState(false)
@@ -77,9 +76,19 @@ export default function EntradasClient({
     startTransition(async () => {
       try {
         await createEntrada(values)
+        const prod = productos.find(p => p.id === values.producto_id)
+        const nueva: Entrada = {
+          id: crypto.randomUUID(),
+          producto_id: values.producto_id,
+          fecha: values.fecha,
+          cantidad: values.cantidad,
+          costo_unitario: values.costo_unitario,
+          created_at: new Date().toISOString(),
+          producto: prod ? { codigo: prod.codigo, nombre: prod.nombre, unidad: prod.unidad } : null,
+        }
+        setListaEntradas(prev => [nueva, ...prev])
         toast.success('Entrada registrada')
         setDialogOpen(false)
-        router.refresh()
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Error al guardar')
       }
@@ -87,13 +96,14 @@ export default function EntradasClient({
   }
 
   function handleDelete() {
-    if (!deleteId) return
+    const id = deleteId
+    if (!id) return
     startTransition(async () => {
       try {
-        await deleteEntrada(deleteId)
+        await deleteEntrada(id)
+        setListaEntradas(prev => prev.filter(e => e.id !== id))
         toast.success('Entrada eliminada')
         setDeleteId(null)
-        router.refresh()
       } catch {
         toast.error('Error al eliminar')
       }
@@ -126,14 +136,14 @@ export default function EntradasClient({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {entradas.length === 0 ? (
+            {listaEntradas.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
                   Sin entradas registradas todavía
                 </TableCell>
               </TableRow>
             ) : (
-              entradas.map(e => (
+              listaEntradas.map(e => (
                 <TableRow key={e.id} className="hover:bg-zinc-50">
                   <TableCell className="text-sm">{format(new Date(e.fecha + 'T12:00:00'), 'dd/MM/yyyy')}</TableCell>
                   <TableCell className="font-mono text-sm">{e.producto?.codigo ?? '—'}</TableCell>
