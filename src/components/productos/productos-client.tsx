@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
-import { createProducto, updateProducto, deleteProducto, getNextCodigo } from '@/lib/actions'
+import { createProducto, updateProducto, deleteProducto } from '@/lib/actions'
 import type { Producto } from '@/lib/types'
 import type { SubmitHandler } from 'react-hook-form'
 
@@ -59,11 +59,19 @@ export default function ProductosClient({ initialProductos }: { initialProductos
   const margen = watch('margen') ?? 0
   const precioVenta = +(costo * (1 + margen / 100)).toFixed(2)
 
-  // Auto-generar código al cambiar tipo (solo en modo creación)
+  // Calcula el próximo código disponible en base a los productos ya cargados
+  function nextCodigo(t: 'Producto' | 'Insumo') {
+    const same = initialProductos.filter(p => p.tipo === t)
+    if (same.length === 0) return t === 'Insumo' ? 500 : 100
+    return Math.max(...same.map(p => p.codigo)) + 1
+  }
+
+  // Auto-actualizar código al cambiar tipo (solo en modo creación)
   useEffect(() => {
     if (!editProducto && dialogOpen) {
-      getNextCodigo(tipo).then(code => setValue('codigo', code)).catch(() => null)
+      setValue('codigo', nextCodigo(tipo))
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tipo, editProducto, dialogOpen])
 
   const filtered = initialProductos
@@ -73,10 +81,10 @@ export default function ProductosClient({ initialProductos }: { initialProductos
     })
 
   function openCreate() {
-    reset({ codigo: 100, tipo: 'Producto', nombre: '', marca: '', unidad: 'ud', costo: 0, margen: 15 })
+    const t = 'Producto'
+    reset({ codigo: nextCodigo(t), tipo: t, nombre: '', marca: '', unidad: 'ud', costo: 0, margen: 15 })
     setEditProducto(null)
     setDialogOpen(true)
-    getNextCodigo('Producto').then(code => setValue('codigo', code)).catch(() => null)
   }
 
   function openEdit(p: Producto) {
