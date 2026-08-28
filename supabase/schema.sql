@@ -108,14 +108,35 @@ CREATE INDEX IF NOT EXISTS idx_salidas_producto     ON salidas(producto_id);
 CREATE INDEX IF NOT EXISTS idx_salidas_fecha        ON salidas(fecha);
 
 -- ============================================
--- CONFIGURACIÓN DE ROW LEVEL SECURITY (RLS)
+-- ROW LEVEL SECURITY (RLS)
 -- ============================================
--- Opción A: Deshabilitar RLS (app interna sin auth)
-ALTER TABLE productos DISABLE ROW LEVEL SECURITY;
-ALTER TABLE entradas  DISABLE ROW LEVEL SECURITY;
-ALTER TABLE salidas   DISABLE ROW LEVEL SECURITY;
+-- La app no tiene autenticación de usuarios: el cliente usa la anon key.
+-- Supabase habilita RLS por defecto en todos los proyectos nuevos.
+-- Sin policies explícitas, el rol "anon" no puede leer ni escribir nada.
+-- Las policies de abajo otorgan acceso completo al rol "anon" en las tres
+-- tablas. La vista inventario_view hereda los permisos de las tablas base.
 
--- Opción B: Si querés mantener RLS, usar estas policies en su lugar:
--- CREATE POLICY "allow_all" ON productos FOR ALL TO anon USING (true) WITH CHECK (true);
--- CREATE POLICY "allow_all" ON entradas  FOR ALL TO anon USING (true) WITH CHECK (true);
--- CREATE POLICY "allow_all" ON salidas   FOR ALL TO anon USING (true) WITH CHECK (true);
+ALTER TABLE productos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE entradas  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE salidas   ENABLE ROW LEVEL SECURITY;
+
+-- productos
+DROP POLICY IF EXISTS "anon_all_productos" ON productos;
+CREATE POLICY "anon_all_productos" ON productos
+  FOR ALL TO anon
+  USING (true)
+  WITH CHECK (true);
+
+-- entradas
+DROP POLICY IF EXISTS "anon_all_entradas" ON entradas;
+CREATE POLICY "anon_all_entradas" ON entradas
+  FOR ALL TO anon
+  USING (true)
+  WITH CHECK (true);
+
+-- salidas
+DROP POLICY IF EXISTS "anon_all_salidas" ON salidas;
+CREATE POLICY "anon_all_salidas" ON salidas
+  FOR ALL TO anon
+  USING (true)
+  WITH CHECK (true);
