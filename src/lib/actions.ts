@@ -1,6 +1,5 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase'
 import type { Producto, Entrada, Salida, InventarioItem } from '@/lib/types'
 
@@ -51,9 +50,6 @@ export async function createProducto(payload: {
     .select()
     .single()
   if (error) throw new Error(error.message)
-  revalidatePath('/')
-  revalidatePath('/productos')
-  revalidatePath('/inventario')
   return data as Producto
 }
 
@@ -64,20 +60,12 @@ export async function updateProducto(
   const sb = createClient()
   const { error } = await sb.from('productos').update(payload).eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath('/')
-  revalidatePath('/productos')
-  revalidatePath('/inventario')
 }
 
 export async function deleteProducto(id: string): Promise<void> {
   const sb = createClient()
   const { error } = await sb.from('productos').delete().eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath('/')
-  revalidatePath('/productos')
-  revalidatePath('/inventario')
-  revalidatePath('/entradas')
-  revalidatePath('/salidas')
 }
 
 // ─── ENTRADAS ─────────────────────────────────────────────────────────────────
@@ -103,18 +91,12 @@ export async function createEntrada(payload: {
   const sb = createClient()
   const { error } = await sb.from('entradas').insert(payload)
   if (error) throw new Error(error.message)
-  revalidatePath('/')
-  revalidatePath('/entradas')
-  revalidatePath('/inventario')
 }
 
 export async function deleteEntrada(id: string): Promise<void> {
   const sb = createClient()
   const { error } = await sb.from('entradas').delete().eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath('/')
-  revalidatePath('/entradas')
-  revalidatePath('/inventario')
 }
 
 // ─── SALIDAS ──────────────────────────────────────────────────────────────────
@@ -140,18 +122,12 @@ export async function createSalida(payload: {
   const sb = createClient()
   const { error } = await sb.from('salidas').insert(payload)
   if (error) throw new Error(error.message)
-  revalidatePath('/')
-  revalidatePath('/salidas')
-  revalidatePath('/inventario')
 }
 
 export async function deleteSalida(id: string): Promise<void> {
   const sb = createClient()
   const { error } = await sb.from('salidas').delete().eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath('/')
-  revalidatePath('/salidas')
-  revalidatePath('/inventario')
 }
 
 // ─── INVENTARIO ───────────────────────────────────────────────────────────────
