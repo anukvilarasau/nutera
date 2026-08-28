@@ -5,12 +5,9 @@ import type { Entrada, Producto } from '@/lib/types'
 export const dynamic = 'force-dynamic'
 
 export default async function EntradasPage() {
-  let entradas: Entrada[] = []
-  let productos: Producto[] = []
-  try {
-    ;[entradas, productos] = await Promise.all([getEntradas(), getProductos()])
-  } catch (e) {
-    console.error('Error cargando entradas:', e)
-  }
+  const [entradas, productos] = await Promise.all([
+    getEntradas().catch((e) => { console.error('Error cargando entradas:', e); return [] as Entrada[] }),
+    getProductos().catch((e) => { console.error('Error cargando productos:', e); return [] as Producto[] }),
+  ])
   return <EntradasClient entradas={entradas} productos={productos} />
 }

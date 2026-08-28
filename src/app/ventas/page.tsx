@@ -5,15 +5,10 @@ import type { Venta, Producto, InventarioItem } from '@/lib/types'
 export const dynamic = 'force-dynamic'
 
 export default async function VentasPage() {
-  let ventas: Venta[] = []
-  let productos: Producto[] = []
-  let inventario: InventarioItem[] = []
-  try {
-    ;[ventas, productos, inventario] = await Promise.all([
-      getVentas(), getProductos(), getInventario(),
-    ])
-  } catch (e) {
-    console.error('Error cargando ventas:', e)
-  }
+  const [ventas, productos, inventario] = await Promise.all([
+    getVentas().catch((e) => { console.error('Error cargando ventas:', e); return [] as Venta[] }),
+    getProductos().catch((e) => { console.error('Error cargando productos:', e); return [] as Producto[] }),
+    getInventario().catch((e) => { console.error('Error cargando inventario:', e); return [] as InventarioItem[] }),
+  ])
   return <VentasClient ventas={ventas} productos={productos} inventario={inventario} />
 }
