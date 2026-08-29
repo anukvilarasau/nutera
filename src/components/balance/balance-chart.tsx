@@ -76,7 +76,9 @@ function agrupar(ventas: VentaRentabilidad[], desde: string, hasta: string): Pun
 
 // ── Tooltip ──────────────────────────────────────────────────────
 
-type TooltipEntry = { name: string; value: number; fill: string }
+// El payload de recharts trae solo Ganancia, pero pasamos el punto completo
+// para poder mostrar Ingreso y Costo también en el tooltip.
+type TooltipEntry = { name: string; value: number; fill: string; payload: Punto }
 
 function TooltipCustom({ active, payload, label }: {
   active?: boolean
@@ -84,25 +86,36 @@ function TooltipCustom({ active, payload, label }: {
   label?: string
 }) {
   if (!active || !payload?.length) return null
+  const d = payload[0].payload          // punto completo con ingreso/costo/ganancia
+  const ganColor = colorGanancia(d.ganancia)
 
   return (
     <div className="bg-white border border-zinc-200 rounded-xl shadow-lg p-3.5 text-sm min-w-[190px]">
       <p className="font-semibold text-zinc-700 mb-2.5 capitalize">{label}</p>
-      {payload.map(p => {
-        // Para Ganancia: el color del dot refleja si es positivo o negativo
-        const dotColor = p.name === 'Ganancia' ? colorGanancia(p.value) : p.fill
-        return (
-          <div key={p.name} className="flex items-center justify-between gap-6 mb-1.5 last:mb-0">
-            <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
-              <span className="text-zinc-500">{p.name}</span>
-            </div>
-            <span className="font-mono font-semibold" style={{ color: dotColor }}>
-              {formatARS(p.value)}
-            </span>
-          </div>
-        )
-      })}
+
+      <div className="flex items-center justify-between gap-6 mb-1.5">
+        <div className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full shrink-0 bg-[#1e5929]" />
+          <span className="text-zinc-500">Ingreso</span>
+        </div>
+        <span className="font-mono font-semibold text-[#1e5929]">{formatARS(d.ingreso)}</span>
+      </div>
+
+      <div className="flex items-center justify-between gap-6 mb-1.5">
+        <div className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full shrink-0 bg-[#e8720f]" />
+          <span className="text-zinc-500">Costo</span>
+        </div>
+        <span className="font-mono font-semibold text-[#e8720f]">{formatARS(d.costo)}</span>
+      </div>
+
+      <div className="flex items-center justify-between gap-6 border-t border-zinc-100 mt-2 pt-2">
+        <div className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: ganColor }} />
+          <span className="text-zinc-500">Ganancia</span>
+        </div>
+        <span className="font-mono font-semibold" style={{ color: ganColor }}>{formatARS(d.ganancia)}</span>
+      </div>
     </div>
   )
 }
@@ -156,20 +169,9 @@ export default function BalanceChart({
             width={62}
           />
           <Tooltip content={<TooltipCustom />} cursor={{ fill: '#f4f4f5', radius: 4 }} />
-          <Legend
-            iconType="circle"
-            iconSize={8}
-            wrapperStyle={{ fontSize: 12, paddingTop: 12 }}
-          />
 
-          {/* Ingreso: verde fijo */}
-          <Bar dataKey="ingreso" name="Ingreso" fill={COLOR.ingreso} radius={[4, 4, 0, 0]} maxBarSize={40} />
-
-          {/* Costo: naranja fijo */}
-          <Bar dataKey="costo" name="Costo" fill={COLOR.costo} radius={[4, 4, 0, 0]} maxBarSize={40} />
-
-          {/* Ganancia: verde si ≥ 0, naranja si < 0 — Cell por barra */}
-          <Bar dataKey="ganancia" name="Ganancia" radius={[4, 4, 0, 0]} maxBarSize={40}>
+          {/* Una sola barra: Ganancia — verde si ≥ 0, naranja si < 0 */}
+          <Bar dataKey="ganancia" name="Ganancia neta" radius={[4, 4, 0, 0]} maxBarSize={52}>
             {datos.map((d, i) => (
               <Cell key={i} fill={colorGanancia(d.ganancia)} />
             ))}
