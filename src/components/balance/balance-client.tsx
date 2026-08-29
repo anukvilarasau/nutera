@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { format, subDays, startOfWeek, startOfMonth, startOfYear, parseISO } from 'date-fns'
+import { format, startOfWeek, startOfMonth, startOfYear, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { TrendingUp, TrendingDown, DollarSign, Percent } from 'lucide-react'
 
@@ -21,7 +21,25 @@ function pct(n: number | null) {
   return `${n >= 0 ? '+' : ''}${n.toFixed(1)} %`
 }
 
-type Preset = 'hoy' | 'semana' | 'mes' | 'año' | 'todo' | 'custom'
+type Preset = 'hoy' | 'semana' | 'mes' | 'año' | 'todo'
+
+function presetRango(key: Preset): { desde: string; hasta: string } {
+  const hoy = new Date()
+  const todayStr = hoy.toISOString().split('T')[0]
+  if (key === 'hoy')    return { desde: todayStr, hasta: todayStr }
+  if (key === 'semana') return { desde: startOfWeek(hoy, { weekStartsOn: 1 }).toISOString().split('T')[0], hasta: todayStr }
+  if (key === 'mes')    return { desde: startOfMonth(hoy).toISOString().split('T')[0], hasta: todayStr }
+  if (key === 'año')    return { desde: startOfYear(hoy).toISOString().split('T')[0], hasta: todayStr }
+  return { desde: '', hasta: '' }
+}
+
+const PRESETS: { key: Preset; label: string }[] = [
+  { key: 'hoy',    label: 'Hoy'    },
+  { key: 'semana', label: 'Semana' },
+  { key: 'mes',    label: 'Mes'    },
+  { key: 'año',    label: 'Año'    },
+  { key: 'todo',   label: 'Todo'   },
+]
 
 export default function BalanceClient({
   ventas,
@@ -30,39 +48,35 @@ export default function BalanceClient({
   ventas: VentaRentabilidad[]
   itemsCosto: ItemCosto[]
 }) {
-  const todayStr = new Date().toISOString().split('T')[0]
+  const initialRango = presetRango('mes')
+  const [preset, setPreset] = useState<Preset | null>('mes')
+  const [desde, setDesde]   = useState(initialRango.desde)
+  const [hasta, setHasta]   = useState(initialRango.hasta)
 
-  const [preset, setPreset]   = useState<Preset>('mes')
-  const [desde, setDesde]     = useState('')
-  const [hasta, setHasta]     = useState('')
+  function clickPreset(key: Preset) {
+    const r = presetRango(key)
+    setPreset(key)
+    setDesde(r.desde)
+    setHasta(r.hasta)
+  }
 
-  // Rango efectivo de fechas
-  const { rangeDesde, rangeHasta } = useMemo(() => {
-    const hoy = new Date()
-    if (preset === 'custom') return { rangeDesde: desde, rangeHasta: hasta }
-    if (preset === 'hoy')    return { rangeDesde: todayStr, rangeHasta: todayStr }
-    if (preset === 'semana') return {
-      rangeDesde: startOfWeek(hoy, { weekStartsOn: 1 }).toISOString().split('T')[0],
-      rangeHasta: todayStr,
-    }
-    if (preset === 'mes')    return {
-      rangeDesde: startOfMonth(hoy).toISOString().split('T')[0],
-      rangeHasta: todayStr,
-    }
-    if (preset === 'año')    return {
-      rangeDesde: startOfYear(hoy).toISOString().split('T')[0],
-      rangeHasta: todayStr,
-    }
-    return { rangeDesde: '', rangeHasta: '' }
-  }, [preset, desde, hasta, todayStr])
+  function handleDesde(val: string) {
+    setDesde(val)
+    setPreset(null)
+  }
+
+  function handleHasta(val: string) {
+    setHasta(val)
+    setPreset(null)
+  }
 
   // Ventas filtradas por rango
   const ventasFiltradas = useMemo(() => ventas.filter(v => {
-    if (!rangeDesde && !rangeHasta) return true
-    if (rangeDesde && v.fecha < rangeDesde) return false
-    if (rangeHasta && v.fecha > rangeHasta) return false
+    if (!desde && !hasta) return true
+    if (desde && v.fecha < desde) return false
+    if (hasta && v.fecha > hasta) return false
     return true
-  }), [ventas, rangeDesde, rangeHasta])
+  }), [ventas, desde, hasta])
 
   // Totales del período
   const totales = useMemo(() => {
@@ -73,24 +87,8 @@ export default function BalanceClient({
     return { ingresos, costos, ganancia, margen }
   }, [ventasFiltradas])
 
-  // IDs de ventas del período → filtrar itemsCosto
-  const ventaIds = useMemo(() => new Set(ventasFiltradas.map(v => v.id)), [ventasFiltradas])
-
-  // itemsCosto filtrado al período (necesitamos venta_items con venta_id — aproximamos
-  // usando proporción: no tenemos venta_id en ItemCosto agregado, así que mostramos
-  // top global y anotamos si no hay filtro; para filtrar exacto habría que pasar items
-  // individuales desde el server). Por ahora mostramos global y lo indicamos.
   const topCostos = itemsCosto.slice(0, 8)
   const maxCosto  = topCostos[0]?.costo_total ?? 1
-
-  const PRESETS: { key: Preset; label: string }[] = [
-    { key: 'hoy',    label: 'Hoy'    },
-    { key: 'semana', label: 'Semana' },
-    { key: 'mes',    label: 'Mes'    },
-    { key: 'año',    label: 'Año'    },
-    { key: 'todo',   label: 'Todo'   },
-    { key: 'custom', label: 'Custom' },
-  ]
 
   return (
     <div className="p-6 space-y-6 max-w-5xl">
@@ -107,28 +105,26 @@ export default function BalanceClient({
             key={key}
             size="sm"
             variant={preset === key ? 'default' : 'outline'}
-            onClick={() => setPreset(key)}
+            onClick={() => clickPreset(key)}
           >
             {label}
           </Button>
         ))}
-        {preset === 'custom' && (
-          <div className="flex items-center gap-2 ml-2">
-            <Input
-              type="date"
-              value={desde}
-              onChange={e => setDesde(e.target.value)}
-              className="h-8 w-36 text-sm"
-            />
-            <span className="text-muted-foreground text-sm">→</span>
-            <Input
-              type="date"
-              value={hasta}
-              onChange={e => setHasta(e.target.value)}
-              className="h-8 w-36 text-sm"
-            />
-          </div>
-        )}
+        <div className="flex items-center gap-2 ml-1">
+          <Input
+            type="date"
+            value={desde}
+            onChange={e => handleDesde(e.target.value)}
+            className="h-8 w-36 text-sm"
+          />
+          <span className="text-muted-foreground text-sm">→</span>
+          <Input
+            type="date"
+            value={hasta}
+            onChange={e => handleHasta(e.target.value)}
+            className="h-8 w-36 text-sm"
+          />
+        </div>
       </div>
 
       {/* Cards resumen */}
