@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
 import type { VentaRentabilidad, ItemCosto } from '@/lib/types'
+import BalanceChart from './balance-chart'
 
 function formatARS(n: number) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
@@ -155,6 +156,9 @@ export default function BalanceClient({
           color={totales.margen == null || totales.margen >= 0 ? 'text-emerald-600' : 'text-red-600'}
         />
       </div>
+
+      {/* Gráfico de evolución */}
+      <BalanceChart ventas={ventasFiltradas} desde={desde} hasta={hasta} />
 
       {/* Tabla de ventas */}
       <div className="space-y-2">
