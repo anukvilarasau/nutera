@@ -1,12 +1,12 @@
 'use server'
 
-import { createClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-server'
 import type { Producto, Entrada, Venta, InventarioItem, VentaRentabilidad, ItemCosto } from '@/lib/types'
 
 // ─── PRODUCTOS ────────────────────────────────────────────────────────────────
 
 export async function getProductos(): Promise<Producto[]> {
-  const sb = createClient()
+  const sb = await createClient()
   const { data, error } = await sb
     .from('productos')
     .select('*')
@@ -16,7 +16,7 @@ export async function getProductos(): Promise<Producto[]> {
 }
 
 export async function getNextCodigo(tipo: 'Producto' | 'Insumo'): Promise<number> {
-  const sb = createClient()
+  const sb = await createClient()
   const { data, error } = await sb.rpc('get_next_codigo', { p_tipo: tipo })
   if (!error && data) return data as number
 
@@ -36,7 +36,7 @@ export async function getNextCodigo(tipo: 'Producto' | 'Insumo'): Promise<number
 // ─── ENTRADAS ─────────────────────────────────────────────────────────────────
 
 export async function getEntradas(): Promise<Entrada[]> {
-  const sb = createClient()
+  const sb = await createClient()
   const { data, error } = await sb
     .from('entradas')
     .select('*, producto:productos(codigo, nombre, unidad)')
@@ -50,7 +50,7 @@ export async function getEntradas(): Promise<Entrada[]> {
 // ─── VENTAS ───────────────────────────────────────────────────────────────────
 
 export async function getVentas(): Promise<Venta[]> {
-  const sb = createClient()
+  const sb = await createClient()
   const { data, error } = await sb
     .from('ventas')
     .select(`
@@ -70,7 +70,7 @@ export async function getVentas(): Promise<Venta[]> {
 // ─── INVENTARIO ───────────────────────────────────────────────────────────────
 
 export async function getInventario(): Promise<InventarioItem[]> {
-  const sb = createClient()
+  const sb = await createClient()
   const { data, error } = await sb
     .from('inventario_view')
     .select('*')
@@ -85,7 +85,7 @@ export async function getBalance(): Promise<{
   ventas: VentaRentabilidad[]
   itemsCosto: ItemCosto[]
 }> {
-  const sb = createClient()
+  const sb = await createClient()
 
   const [{ data: ventas, error: e1 }, { data: items, error: e2 }] = await Promise.all([
     sb.from('venta_rentabilidad').select('*'),
@@ -127,7 +127,7 @@ export async function getBalance(): Promise<{
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 
 export async function getDashboardStats() {
-  const sb = createClient()
+  const sb = await createClient()
   const [{ count: totalProductos }, { count: totalInsumos }, { data: estados }] =
     await Promise.all([
       sb.from('productos').select('*', { count: 'exact', head: true }).eq('tipo', 'Producto'),

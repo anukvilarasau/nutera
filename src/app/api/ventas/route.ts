@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-server'
 
 export async function POST(req: Request) {
   try {
@@ -11,7 +11,7 @@ export async function POST(req: Request) {
       return Response.json({ error: 'La venta debe tener al menos un ítem' }, { status: 400 })
     }
 
-    const sb = createClient()
+    const sb = await createClient()
 
     const total = items.reduce((sum, item) => {
       return sum + (item.precio_unitario != null ? item.precio_unitario * item.cantidad : 0)

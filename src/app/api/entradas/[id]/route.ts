@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-server'
 
 export async function DELETE(
   _: Request,
@@ -6,7 +6,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const sb = createClient()
+    const sb = await createClient()
     const { error } = await sb.from('entradas').delete().eq('id', id)
     if (error) {
       console.error('[DELETE /api/entradas/[id]] Supabase error:', error)

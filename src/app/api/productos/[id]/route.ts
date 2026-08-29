@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-server'
 
 export async function PATCH(
   req: Request,
@@ -7,7 +7,7 @@ export async function PATCH(
   try {
     const { id } = await params
     const payload = await req.json()
-    const sb = createClient()
+    const sb = await createClient()
     const { error } = await sb.from('productos').update(payload).eq('id', id)
     if (error) {
       console.error('[PATCH /api/productos/[id]] Supabase error:', error)
@@ -26,7 +26,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const sb = createClient()
+    const sb = await createClient()
     const { error } = await sb.from('productos').delete().eq('id', id)
     if (error) {
       console.error('[DELETE /api/productos/[id]] Supabase error:', error)

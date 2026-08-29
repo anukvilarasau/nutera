@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Package, Boxes, PackagePlus, PackageMinus, TrendingUp } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { LayoutDashboard, Package, Boxes, PackagePlus, PackageMinus, TrendingUp, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase-browser'
 
 const NAV = [
   { href: '/',           label: 'Inicio',     icon: LayoutDashboard },
@@ -14,8 +15,19 @@ const NAV = [
   { href: '/balance',    label: 'Balance',    icon: TrendingUp      },
 ]
 
-export default function NavSidebar() {
+export default function NavSidebar({ userEmail }: { userEmail?: string }) {
   const pathname = usePathname()
+  const router   = useRouter()
+
+  async function handleSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
+
+  // Mostrar la parte del email antes del @ como nombre corto
+  const displayName = userEmail?.split('@')[0] ?? 'Usuario'
 
   return (
     <>
@@ -25,6 +37,7 @@ export default function NavSidebar() {
           <p className="font-bold text-lg leading-none">Nutera</p>
           <p className="text-xs text-muted-foreground mt-0.5">Gestión de inventario</p>
         </div>
+
         <nav className="flex-1 p-2 space-y-0.5">
           {NAV.map(({ href, label, icon: Icon }) => (
             <Link
@@ -42,6 +55,23 @@ export default function NavSidebar() {
             </Link>
           ))}
         </nav>
+
+        {/* Usuario + cerrar sesión */}
+        <div className="border-t p-3">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold truncate">{displayName}</p>
+              <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
+            </div>
+            <button
+              onClick={handleSignOut}
+              title="Cerrar sesión"
+              className="shrink-0 p-1.5 rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </aside>
 
       {/* Bottom nav mobile / PWA */}
@@ -62,6 +92,13 @@ export default function NavSidebar() {
             </Link>
           )
         })}
+        <button
+          onClick={handleSignOut}
+          className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[10px] font-medium text-zinc-400 transition-colors hover:text-zinc-700"
+        >
+          <LogOut className="h-5 w-5" />
+          Salir
+        </button>
       </nav>
     </>
   )

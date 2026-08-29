@@ -1,9 +1,9 @@
-import { createClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-server'
 
 export async function POST(req: Request) {
   try {
     const payload = await req.json()
-    const sb = createClient()
+    const sb = await createClient()
     const { error } = await sb.from('entradas').insert(payload)
     if (error) {
       console.error('[POST /api/entradas] Supabase error:', error)

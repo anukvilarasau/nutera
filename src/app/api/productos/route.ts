@@ -1,9 +1,9 @@
-import { createClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-server'
 
 export async function POST(req: Request) {
   try {
     const payload = await req.json()
-    const sb = createClient()
+    const sb = await createClient()
     const { data, error } = await sb
       .from('productos')
       .insert(payload)
