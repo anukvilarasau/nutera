@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, Search, Loader2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Loader2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,54 +21,46 @@ import type { Producto } from '@/lib/types'
 import type { SubmitHandler } from 'react-hook-form'
 
 const schema = z.object({
-  codigo:  z.coerce.number().min(1, 'Requerido'),
-  tipo:    z.enum(['Producto', 'Insumo']),
-  nombre:  z.string().min(1, 'Requerido'),
-  marca:   z.string(),
-  unidad:  z.string().min(1, 'Requerido'),
-  costo:   z.coerce.number().min(0, 'Debe ser ≥ 0'),
-  margen:  z.coerce.number().min(0).max(100, 'Entre 0 y 100'),
+  codigo:    z.coerce.number().min(1, 'Requerido'),
+  tipo:      z.enum(['Producto', 'Insumo']),
+  nombre:    z.string().min(1, 'Requerido'),
+  proveedor: z.string(),
+  unidad:    z.string().min(1, 'Requerido'),
+  costo:     z.coerce.number().min(0, 'Debe ser ≥ 0'),
+  margen:    z.coerce.number().min(0).max(100, 'Entre 0 y 100'),
 })
 type FormValues = z.infer<typeof schema>
 
 const UNIDADES = ['ud', 'kg', 'g', 'lt', 'ml', 'caja', 'bolsa', 'rollo']
+const ALL = '_all'
 
-function pct(decimal: number) {
-  return +(decimal * 100).toFixed(2)
-}
+function pct(decimal: number) { return +(decimal * 100).toFixed(2) }
 function formatARS(n: number) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 }).format(n)
 }
 
 function TipoBadge({ tipo }: { tipo: string }) {
-  if (tipo === 'Producto') {
-    return (
-      <Badge className="bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-100 text-xs font-medium shrink-0">
-        Producto
-      </Badge>
-    )
-  }
-  return (
-    <Badge className="bg-zinc-100 text-zinc-500 border border-zinc-200 hover:bg-zinc-100 text-xs font-medium shrink-0">
-      Insumo
-    </Badge>
-  )
+  return tipo === 'Producto'
+    ? <Badge className="bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-100 text-xs font-medium shrink-0">Producto</Badge>
+    : <Badge className="bg-zinc-100 text-zinc-500 border border-zinc-200 hover:bg-zinc-100 text-xs font-medium shrink-0">Insumo</Badge>
 }
 
 type TipoFiltro = 'todos' | 'Producto' | 'Insumo'
 
 export default function ProductosClient({ initialProductos }: { initialProductos: Producto[] }) {
   const [isPending, startTransition] = useTransition()
-  const [productos, setProductos] = useState<Producto[]>(initialProductos)
-  const [search, setSearch] = useState('')
+  const [productos, setProductos]   = useState<Producto[]>(initialProductos)
+  const [search, setSearch]         = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('todos')
+  const [provFiltro, setProvFiltro] = useState('')
+  const [unidFiltro, setUnidFiltro] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleteId, setDeleteId]     = useState<string | null>(null)
   const [editProducto, setEditProducto] = useState<Producto | null>(null)
 
   const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { codigo: 100, tipo: 'Producto', nombre: '', marca: '', unidad: 'ud', costo: 0, margen: 15 },
+    defaultValues: { codigo: 100, tipo: 'Producto', nombre: '', proveedor: '', unidad: 'ud', costo: 0, margen: 15 },
   })
 
   const tipo   = watch('tipo')
@@ -83,11 +75,39 @@ export default function ProductosClient({ initialProductos }: { initialProductos
   }
 
   useEffect(() => {
-    if (!editProducto && dialogOpen) {
-      setValue('codigo', nextCodigo(tipo))
-    }
+    if (!editProducto && dialogOpen) setValue('codigo', nextCodigo(tipo))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tipo, editProducto, dialogOpen])
+
+  // Opciones dinámicas para filtros
+  const proveedores = useMemo(() => {
+    const set = new Set(productos.map(p => p.proveedor).filter(Boolean))
+    return [...set].sort() as string[]
+  }, [productos])
+
+  const unidades = useMemo(() => {
+    const set = new Set(productos.map(p => p.unidad).filter(Boolean))
+    return [...set].sort() as string[]
+  }, [productos])
+
+  const hayFiltros = tipoFiltro !== 'todos' || !!provFiltro || !!unidFiltro || !!search
+
+  function limpiarFiltros() {
+    setTipoFiltro('todos')
+    setProvFiltro('')
+    setUnidFiltro('')
+    setSearch('')
+  }
+
+  const filtered = useMemo(() => productos.filter(p => {
+    const q = search.toLowerCase()
+    return (
+      (p.nombre.toLowerCase().includes(q) || p.codigo.toString().includes(q)) &&
+      (tipoFiltro === 'todos' || p.tipo === tipoFiltro) &&
+      (!provFiltro || p.proveedor === provFiltro) &&
+      (!unidFiltro || p.unidad === unidFiltro)
+    )
+  }), [productos, search, tipoFiltro, provFiltro, unidFiltro])
 
   const counts = {
     todos:    productos.length,
@@ -95,45 +115,27 @@ export default function ProductosClient({ initialProductos }: { initialProductos
     Insumo:   productos.filter(p => p.tipo === 'Insumo').length,
   }
 
-  const filtered = productos.filter(p => {
-    const q = search.toLowerCase()
-    const matchSearch = p.nombre.toLowerCase().includes(q) || p.codigo.toString().includes(q)
-    const matchTipo   = tipoFiltro === 'todos' || p.tipo === tipoFiltro
-    return matchSearch && matchTipo
-  })
-
   function openCreate() {
     const t = 'Producto'
-    reset({ codigo: nextCodigo(t), tipo: t, nombre: '', marca: '', unidad: 'ud', costo: 0, margen: 15 })
+    reset({ codigo: nextCodigo(t), tipo: t, nombre: '', proveedor: '', unidad: 'ud', costo: 0, margen: 15 })
     setEditProducto(null)
     setDialogOpen(true)
   }
 
   function openEdit(p: Producto) {
-    reset({
-      codigo: p.codigo,
-      tipo:   p.tipo,
-      nombre: p.nombre,
-      marca:  p.marca,
-      unidad: p.unidad,
-      costo:  p.costo,
-      margen: pct(p.margen),
-    })
+    reset({ codigo: p.codigo, tipo: p.tipo, nombre: p.nombre, proveedor: p.proveedor, unidad: p.unidad, costo: p.costo, margen: pct(p.margen) })
     setEditProducto(p)
     setDialogOpen(true)
   }
 
   const onSubmit: SubmitHandler<FormValues> = (values) => {
-    // Insumos no tienen margen significativo — se guarda 0
     const margenDecimal = values.tipo === 'Insumo' ? 0 : values.margen / 100
     const payload = { ...values, margen: margenDecimal }
     startTransition(async () => {
       try {
         if (editProducto) {
           await updateProducto(editProducto.id, payload)
-          setProductos(prev => prev.map(p =>
-            p.id === editProducto.id ? { ...p, ...payload } : p
-          ))
+          setProductos(prev => prev.map(p => p.id === editProducto.id ? { ...p, ...payload } : p))
           toast.success('Guardado')
         } else {
           const created = await createProducto(payload)
@@ -164,45 +166,69 @@ export default function ProductosClient({ initialProductos }: { initialProductos
 
   return (
     <div className="p-6 space-y-4 max-w-6xl">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Catálogo</h1>
-          <p className="text-muted-foreground text-sm">
-            {counts.Producto} productos · {counts.Insumo} insumos
-          </p>
+          <p className="text-muted-foreground text-sm">{counts.Producto} productos · {counts.Insumo} insumos</p>
         </div>
         <Button onClick={openCreate} size="sm">
           <Plus className="h-4 w-4 mr-1" /> Nuevo
         </Button>
       </div>
 
-      {/* Búsqueda + filtro tipo */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Búsqueda */}
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por código o nombre…"
-            className="pl-9"
+            className="pl-9 h-8 w-52 text-sm"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-1">
-          {([
-            { key: 'todos',    label: `Todos (${counts.todos})`          },
-            { key: 'Producto', label: `Productos (${counts.Producto})`   },
-            { key: 'Insumo',   label: `Insumos (${counts.Insumo})`       },
-          ] as const).map(({ key, label }) => (
-            <Button
-              key={key}
-              size="sm"
-              variant={tipoFiltro === key ? 'default' : 'outline'}
-              onClick={() => setTipoFiltro(key)}
-            >
-              {label}
-            </Button>
-          ))}
-        </div>
+
+        {/* Tipo */}
+        {(['todos', 'Producto', 'Insumo'] as const).map(f => (
+          <Button key={f} size="sm" variant={tipoFiltro === f ? 'default' : 'outline'} onClick={() => setTipoFiltro(f)}>
+            {f === 'todos' ? `Todos (${counts.todos})` : f === 'Producto' ? `Productos (${counts.Producto})` : `Insumos (${counts.Insumo})`}
+          </Button>
+        ))}
+
+        {/* Proveedor */}
+        {proveedores.length > 0 && (
+          <Select value={provFiltro || ALL} onValueChange={v => setProvFiltro(v == null || v === ALL ? '' : v)}>
+            <SelectTrigger className="h-8 w-44 text-sm">
+              <SelectValue placeholder="Proveedor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todos los proveedores</SelectItem>
+              {proveedores.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* Unidad */}
+        {unidades.length > 1 && (
+          <Select value={unidFiltro || ALL} onValueChange={v => setUnidFiltro(v == null || v === ALL ? '' : v)}>
+            <SelectTrigger className="h-8 w-36 text-sm">
+              <SelectValue placeholder="Unidad" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todas las unidades</SelectItem>
+              {unidades.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* Limpiar */}
+        {hayFiltros && (
+          <Button size="sm" variant="ghost" onClick={limpiarFiltros} className="text-muted-foreground hover:text-foreground">
+            <X className="h-3.5 w-3.5 mr-1" /> Limpiar filtros
+          </Button>
+        )}
       </div>
 
       {/* Tabla */}
@@ -212,7 +238,7 @@ export default function ProductosClient({ initialProductos }: { initialProductos
             <TableRow className="bg-zinc-50">
               <TableHead className="w-16">Cód.</TableHead>
               <TableHead>Nombre</TableHead>
-              <TableHead>Marca</TableHead>
+              <TableHead>Proveedor</TableHead>
               <TableHead className="w-16">Unidad</TableHead>
               <TableHead className="text-right">Costo</TableHead>
               <TableHead className="text-right w-20">Margen</TableHead>
@@ -224,7 +250,7 @@ export default function ProductosClient({ initialProductos }: { initialProductos
             {filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
-                  {search ? 'Sin resultados para esa búsqueda' : 'No hay items en este filtro'}
+                  {hayFiltros ? 'Sin resultados para los filtros aplicados' : 'No hay items en el catálogo'}
                 </TableCell>
               </TableRow>
             ) : (
@@ -237,18 +263,14 @@ export default function ProductosClient({ initialProductos }: { initialProductos
                       <span className="font-medium">{p.nombre}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{p.marca || '—'}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{p.proveedor || '—'}</TableCell>
                   <TableCell>{p.unidad}</TableCell>
                   <TableCell className="text-right font-mono text-sm">{formatARS(p.costo)}</TableCell>
                   <TableCell className="text-right font-mono text-sm">
-                    {p.tipo === 'Insumo'
-                      ? <span className="text-muted-foreground">—</span>
-                      : `${pct(p.margen)} %`}
+                    {p.tipo === 'Insumo' ? <span className="text-muted-foreground">—</span> : `${pct(p.margen)} %`}
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm font-medium">
-                    {p.tipo === 'Insumo'
-                      ? <span className="text-muted-foreground">—</span>
-                      : formatARS(p.costo * (1 + p.margen))}
+                    {p.tipo === 'Insumo' ? <span className="text-muted-foreground">—</span> : formatARS(p.costo * (1 + p.margen))}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1 justify-end">
@@ -271,12 +293,9 @@ export default function ProductosClient({ initialProductos }: { initialProductos
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {editProducto ? 'Editar' : 'Nuevo'} {tipo === 'Insumo' ? 'insumo' : 'producto'}
-            </DialogTitle>
+            <DialogTitle>{editProducto ? 'Editar' : 'Nuevo'} {tipo === 'Insumo' ? 'insumo' : 'producto'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* Tipo + Código */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Tipo</Label>
@@ -295,21 +314,16 @@ export default function ProductosClient({ initialProductos }: { initialProductos
               </div>
             </div>
 
-            {/* Nombre */}
             <div className="space-y-1">
               <Label>Nombre</Label>
-              <Input
-                placeholder={tipo === 'Insumo' ? 'Ej: Bolsa kraft 1 kg' : 'Ej: Almendras (500 g)'}
-                {...register('nombre')}
-              />
+              <Input placeholder={tipo === 'Insumo' ? 'Ej: Bolsa kraft 1 kg' : 'Ej: Almendras (500 g)'} {...register('nombre')} />
               {errors.nombre && <p className="text-destructive text-xs">{errors.nombre.message}</p>}
             </div>
 
-            {/* Marca + Unidad */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>Marca <span className="text-muted-foreground">(opcional)</span></Label>
-                <Input placeholder="Ej: Cuyo Nut S.A." {...register('marca')} />
+                <Label>Proveedor <span className="text-muted-foreground">(opcional)</span></Label>
+                <Input placeholder="Ej: Cuyo Nut S.A." {...register('proveedor')} />
               </div>
               <div className="space-y-1">
                 <Label>Unidad</Label>
@@ -322,7 +336,6 @@ export default function ProductosClient({ initialProductos }: { initialProductos
               </div>
             </div>
 
-            {/* Costo (+ Margen solo para Producto) */}
             <div className={tipo === 'Producto' ? 'grid grid-cols-2 gap-3' : ''}>
               <div className="space-y-1">
                 <Label>Costo ($)</Label>
@@ -338,7 +351,6 @@ export default function ProductosClient({ initialProductos }: { initialProductos
               )}
             </div>
 
-            {/* Precio de venta calculado — solo para Producto */}
             {tipo === 'Producto' && (
               <div className="rounded-md bg-zinc-50 border px-3 py-2 flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Precio de venta</span>

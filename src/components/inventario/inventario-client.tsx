@@ -1,12 +1,18 @@
 'use client'
 
-import { useState } from 'react'
-import { Search } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import type { InventarioItem } from '@/lib/types'
+
+const ALL = '_all'
 
 function TipoBadge({ tipo }: { tipo: string }) {
   return (
@@ -31,13 +37,46 @@ function EstadoBadge({ estado }: { estado: InventarioItem['estado'] }) {
   return <Badge className="bg-emerald-600 hover:bg-emerald-700">Disponible</Badge>
 }
 
-export default function InventarioClient({ inventario }: { inventario: InventarioItem[] }) {
-  const [search, setSearch] = useState('')
+type TipoFiltro = 'todos' | 'Producto' | 'Insumo'
 
-  const filtered = inventario.filter(i => {
+export default function InventarioClient({ inventario }: { inventario: InventarioItem[] }) {
+  const [search,       setSearch]       = useState('')
+  const [tipoFiltro,   setTipoFiltro]   = useState<TipoFiltro>('todos')
+  const [provFiltro,   setProvFiltro]   = useState(ALL)
+  const [unidFiltro,   setUnidFiltro]   = useState(ALL)
+  const [estadoFiltro, setEstadoFiltro] = useState(ALL)
+
+  const proveedores = useMemo(() =>
+    [...new Set(inventario.map(i => i.proveedor).filter(Boolean))].sort(),
+    [inventario],
+  )
+
+  const unidades = useMemo(() =>
+    [...new Set(inventario.map(i => i.unidad).filter(Boolean))].sort(),
+    [inventario],
+  )
+
+  const hayFiltros = search !== '' || tipoFiltro !== 'todos' || provFiltro !== ALL || unidFiltro !== ALL || estadoFiltro !== ALL
+
+  function limpiarFiltros() {
+    setSearch('')
+    setTipoFiltro('todos')
+    setProvFiltro(ALL)
+    setUnidFiltro(ALL)
+    setEstadoFiltro(ALL)
+  }
+
+  const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return i.nombre.toLowerCase().includes(q) || i.codigo.toString().includes(q)
-  })
+    return inventario.filter(i => {
+      if (q && !i.nombre.toLowerCase().includes(q) && !i.codigo.toString().includes(q)) return false
+      if (tipoFiltro !== 'todos' && i.tipo !== tipoFiltro) return false
+      if (provFiltro !== ALL && i.proveedor !== provFiltro) return false
+      if (unidFiltro !== ALL && i.unidad !== unidFiltro) return false
+      if (estadoFiltro !== ALL && i.estado !== estadoFiltro) return false
+      return true
+    })
+  }, [inventario, search, tipoFiltro, provFiltro, unidFiltro, estadoFiltro])
 
   const agotados    = inventario.filter(i => i.estado === 'agotado').length
   const bajos       = inventario.filter(i => i.estado === 'bajo').length
@@ -52,14 +91,90 @@ export default function InventarioClient({ inventario }: { inventario: Inventari
         </p>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por código o nombre…"
-          className="pl-9"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por código o nombre…"
+            className="pl-9 w-56"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+
+        {/* Tipo */}
+        <div className="flex rounded-lg border overflow-hidden text-sm">
+          {(['todos', 'Producto', 'Insumo'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setTipoFiltro(t)}
+              className={cn(
+                'px-3 py-1.5 transition-colors',
+                tipoFiltro === t
+                  ? 'bg-brand text-white font-medium'
+                  : 'bg-white text-zinc-600 hover:bg-zinc-50',
+              )}
+            >
+              {t === 'todos' ? 'Todos' : t === 'Producto' ? 'Productos' : 'Insumos'}
+            </button>
+          ))}
+        </div>
+
+        {/* Proveedor */}
+        {proveedores.length > 0 && (
+          <Select value={provFiltro} onValueChange={v => setProvFiltro(v ?? ALL)}>
+            <SelectTrigger className="w-40 text-sm">
+              <SelectValue placeholder="Proveedor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todos los proveedores</SelectItem>
+              {proveedores.map(p => (
+                <SelectItem key={p} value={p}>{p}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* Unidad */}
+        {unidades.length > 0 && (
+          <Select value={unidFiltro} onValueChange={v => setUnidFiltro(v ?? ALL)}>
+            <SelectTrigger className="w-32 text-sm">
+              <SelectValue placeholder="Unidad" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todas</SelectItem>
+              {unidades.map(u => (
+                <SelectItem key={u} value={u}>{u}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* Estado */}
+        <Select value={estadoFiltro} onValueChange={v => setEstadoFiltro(v ?? ALL)}>
+          <SelectTrigger className="w-36 text-sm">
+            <SelectValue placeholder="Estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Todos los estados</SelectItem>
+            <SelectItem value="disponible">Disponible</SelectItem>
+            <SelectItem value="bajo">Stock bajo</SelectItem>
+            <SelectItem value="agotado">Agotado</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {hayFiltros && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={limpiarFiltros}
+            className="text-zinc-500 gap-1.5"
+          >
+            <X className="h-3.5 w-3.5" />
+            Limpiar filtros
+          </Button>
+        )}
       </div>
 
       <div className="rounded-lg border bg-white overflow-x-auto">
@@ -80,7 +195,7 @@ export default function InventarioClient({ inventario }: { inventario: Inventari
             {filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
-                  {search ? 'Sin resultados' : 'Sin productos en inventario'}
+                  {hayFiltros ? 'Sin resultados para los filtros aplicados' : 'Sin productos en inventario'}
                 </TableCell>
               </TableRow>
             ) : (
@@ -91,7 +206,7 @@ export default function InventarioClient({ inventario }: { inventario: Inventari
                     <div className="flex items-center gap-2">
                       <TipoBadge tipo={item.tipo} />
                       <span className="font-medium">{item.nombre}</span>
-                      {item.marca && <span className="text-muted-foreground text-xs">· {item.marca}</span>}
+                      {item.proveedor && <span className="text-muted-foreground text-xs">· {item.proveedor}</span>}
                     </div>
                   </TableCell>
                   <TableCell className="text-sm">{item.unidad}</TableCell>
