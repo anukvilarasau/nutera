@@ -28,6 +28,30 @@ export interface Entrada {
   } | null
 }
 
+export interface CompraItem {
+  id: string
+  compra_id: string
+  producto_id: string
+  cantidad: number
+  costo_unitario: number
+  created_at: string
+  producto: {
+    codigo: number
+    nombre: string
+    unidad: string
+    tipo: string
+  } | null
+}
+
+export interface Compra {
+  id: string
+  fecha: string
+  proveedor: string
+  total: number
+  created_at: string
+  items: CompraItem[]
+}
+
 export interface VentaItem {
   id: string
   venta_id: string

@@ -28,6 +28,26 @@ CREATE TABLE IF NOT EXISTS entradas (
   created_at     TIMESTAMPTZ    NOT NULL DEFAULT NOW()
 );
 
+-- ── COMPRAS ───────────────────────────────────────────────────────────────────
+-- Una fila por orden de compra (agrupa todos los ítems)
+CREATE TABLE IF NOT EXISTS compras (
+  id         UUID           DEFAULT gen_random_uuid() PRIMARY KEY,
+  fecha      DATE           NOT NULL DEFAULT CURRENT_DATE,
+  proveedor  TEXT           NOT NULL DEFAULT '',
+  total      NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ    NOT NULL DEFAULT NOW()
+);
+
+-- Una fila por ítem de la compra
+CREATE TABLE IF NOT EXISTS compra_items (
+  id              UUID           DEFAULT gen_random_uuid() PRIMARY KEY,
+  compra_id       UUID           NOT NULL REFERENCES compras(id) ON DELETE CASCADE,
+  producto_id     UUID           NOT NULL REFERENCES productos(id) ON DELETE RESTRICT,
+  cantidad        NUMERIC(12, 3) NOT NULL CHECK (cantidad > 0),
+  costo_unitario  NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  created_at      TIMESTAMPTZ    NOT NULL DEFAULT NOW()
+);
+
 -- Una fila por venta (agrupa todos los ítems)
 CREATE TABLE IF NOT EXISTS ventas (
   id         UUID           DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -61,18 +81,18 @@ SELECT
   p.unidad,
   p.costo,
   p.margen,
-  ROUND(p.costo * (1 + p.margen), 2)                                         AS precio_venta,
-  COALESCE(SUM(e.cantidad), 0)::NUMERIC                                       AS total_entradas,
+  ROUND(p.costo * (1 + p.margen), 2)                                          AS precio_venta,
+  COALESCE(SUM(ci.cantidad), 0)::NUMERIC                                      AS total_entradas,
   COALESCE(SUM(vi.cantidad), 0)::NUMERIC                                      AS total_salidas,
-  (COALESCE(SUM(e.cantidad), 0) - COALESCE(SUM(vi.cantidad), 0))::NUMERIC    AS stock_total,
+  (COALESCE(SUM(ci.cantidad), 0) - COALESCE(SUM(vi.cantidad), 0))::NUMERIC   AS stock_total,
   CASE
-    WHEN (COALESCE(SUM(e.cantidad), 0) - COALESCE(SUM(vi.cantidad), 0)) <= 0 THEN 'agotado'
-    WHEN (COALESCE(SUM(e.cantidad), 0) - COALESCE(SUM(vi.cantidad), 0)) <= 5 THEN 'bajo'
+    WHEN (COALESCE(SUM(ci.cantidad), 0) - COALESCE(SUM(vi.cantidad), 0)) <= 0 THEN 'agotado'
+    WHEN (COALESCE(SUM(ci.cantidad), 0) - COALESCE(SUM(vi.cantidad), 0)) <= 5 THEN 'bajo'
     ELSE 'disponible'
   END AS estado
 FROM productos p
-LEFT JOIN entradas    e  ON e.producto_id  = p.id
-LEFT JOIN venta_items vi ON vi.producto_id = p.id
+LEFT JOIN compra_items ci ON ci.producto_id = p.id
+LEFT JOIN venta_items  vi ON vi.producto_id = p.id
 GROUP BY p.id, p.codigo, p.nombre, p.proveedor, p.tipo, p.unidad, p.costo, p.margen
 ORDER BY p.codigo;
 
@@ -153,6 +173,9 @@ CREATE INDEX IF NOT EXISTS idx_productos_tipo        ON productos(tipo);
 CREATE INDEX IF NOT EXISTS idx_productos_nombre      ON productos USING gin(to_tsvector('spanish', nombre));
 CREATE INDEX IF NOT EXISTS idx_entradas_producto     ON entradas(producto_id);
 CREATE INDEX IF NOT EXISTS idx_entradas_fecha        ON entradas(fecha);
+CREATE INDEX IF NOT EXISTS idx_compras_fecha         ON compras(fecha);
+CREATE INDEX IF NOT EXISTS idx_compra_items_compra   ON compra_items(compra_id);
+CREATE INDEX IF NOT EXISTS idx_compra_items_producto ON compra_items(producto_id);
 CREATE INDEX IF NOT EXISTS idx_ventas_fecha          ON ventas(fecha);
 CREATE INDEX IF NOT EXISTS idx_venta_items_venta     ON venta_items(venta_id);
 CREATE INDEX IF NOT EXISTS idx_venta_items_producto  ON venta_items(producto_id);
@@ -161,23 +184,33 @@ CREATE INDEX IF NOT EXISTS idx_venta_items_producto  ON venta_items(producto_id)
 -- App interna sin autenticación — anon key tiene acceso completo.
 -- inventario_view hereda permisos de las tablas base (no necesita policy).
 
-ALTER TABLE productos   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE entradas    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ventas      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE venta_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE productos    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE entradas     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE compras      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE compra_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ventas       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE venta_items  ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Permitir todo" ON productos;
 CREATE POLICY "Permitir todo" ON productos
-  FOR ALL TO anon USING (true) WITH CHECK (true);
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Permitir todo" ON entradas;
 CREATE POLICY "Permitir todo" ON entradas
-  FOR ALL TO anon USING (true) WITH CHECK (true);
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir todo autenticado" ON compras;
+CREATE POLICY "Permitir todo autenticado" ON compras
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir todo autenticado" ON compra_items;
+CREATE POLICY "Permitir todo autenticado" ON compra_items
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Permitir todo" ON ventas;
 CREATE POLICY "Permitir todo" ON ventas
-  FOR ALL TO anon USING (true) WITH CHECK (true);
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Permitir todo" ON venta_items;
 CREATE POLICY "Permitir todo" ON venta_items
-  FOR ALL TO anon USING (true) WITH CHECK (true);
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);

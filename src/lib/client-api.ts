@@ -63,6 +63,24 @@ export function deleteEntrada(id: string): Promise<void> {
   return apiFetch(`/api/entradas/${id}`, { method: 'DELETE' })
 }
 
+// ─── COMPRAS ──────────────────────────────────────────────────────────────────
+
+export function createCompra(payload: {
+  fecha: string
+  proveedor: string
+  items: Array<{ producto_id: string; cantidad: number; costo_unitario: number }>
+}): Promise<import('./types').Compra> {
+  return apiFetch('/api/compras', {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteCompra(id: string): Promise<void> {
+  return apiFetch(`/api/compras/${id}`, { method: 'DELETE' })
+}
+
 // ─── VENTAS ───────────────────────────────────────────────────────────────────
 
 export function createVenta(payload: {

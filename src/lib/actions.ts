@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase-server'
-import type { Producto, Entrada, Venta, InventarioItem, VentaRentabilidad, ItemCosto } from '@/lib/types'
+import type { Producto, Entrada, Compra, Venta, InventarioItem, VentaRentabilidad, ItemCosto } from '@/lib/types'
 
 // ─── PRODUCTOS ────────────────────────────────────────────────────────────────
 
@@ -45,6 +45,20 @@ export async function getEntradas(): Promise<Entrada[]> {
     .limit(300)
   if (error) throw new Error(error.message)
   return data as Entrada[]
+}
+
+// ─── COMPRAS ──────────────────────────────────────────────────────────────────
+
+export async function getCompras(): Promise<Compra[]> {
+  const sb = await createClient()
+  const { data, error } = await sb
+    .from('compras')
+    .select(`*, items:compra_items(*, producto:productos(codigo, nombre, unidad, tipo))`)
+    .order('fecha', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(300)
+  if (error) throw new Error(error.message)
+  return data as Compra[]
 }
 
 // ─── VENTAS ───────────────────────────────────────────────────────────────────

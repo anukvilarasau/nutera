@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, Package, Boxes, PackagePlus,
+  LayoutDashboard, Package, Boxes, ShoppingCart,
   PackageMinus, TrendingUp, HelpCircle, LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -15,7 +15,7 @@ const NAV = [
   { href: '/',           label: 'Inicio',     icon: LayoutDashboard },
   { href: '/productos',  label: 'Catálogo',   icon: Package         },
   { href: '/inventario', label: 'Inventario', icon: Boxes           },
-  { href: '/entradas',   label: 'Entradas',   icon: PackagePlus     },
+  { href: '/compras',    label: 'Compras',    icon: ShoppingCart    },
   { href: '/ventas',     label: 'Ventas',     icon: PackageMinus    },
   { href: '/balance',    label: 'Balance',    icon: TrendingUp      },
 ]
