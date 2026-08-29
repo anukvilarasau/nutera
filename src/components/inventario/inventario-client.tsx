@@ -5,7 +5,21 @@ import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 import type { InventarioItem } from '@/lib/types'
+
+function TipoBadge({ tipo }: { tipo: string }) {
+  return (
+    <Badge className={cn(
+      'text-xs font-medium border shrink-0',
+      tipo === 'Producto'
+        ? 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100'
+        : 'bg-zinc-100 text-zinc-500 border-zinc-200 hover:bg-zinc-100'
+    )}>
+      {tipo}
+    </Badge>
+  )
+}
 
 function formatARS(n: number) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 }).format(n)
@@ -54,7 +68,6 @@ export default function InventarioClient({ inventario }: { inventario: Inventari
             <TableRow className="bg-zinc-50">
               <TableHead className="w-16">Cód.</TableHead>
               <TableHead>Nombre</TableHead>
-              <TableHead className="w-20">Tipo</TableHead>
               <TableHead className="w-16">Unidad</TableHead>
               <TableHead className="text-right">Entradas</TableHead>
               <TableHead className="text-right">Salidas</TableHead>
@@ -66,7 +79,7 @@ export default function InventarioClient({ inventario }: { inventario: Inventari
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground py-12">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                   {search ? 'Sin resultados' : 'Sin productos en inventario'}
                 </TableCell>
               </TableRow>
@@ -75,11 +88,11 @@ export default function InventarioClient({ inventario }: { inventario: Inventari
                 <TableRow key={item.id} className="hover:bg-zinc-50">
                   <TableCell className="font-mono text-sm">{item.codigo}</TableCell>
                   <TableCell>
-                    <span className="font-medium">{item.nombre}</span>
-                    {item.marca && <span className="text-muted-foreground text-xs ml-1">· {item.marca}</span>}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs">{item.tipo}</Badge>
+                    <div className="flex items-center gap-2">
+                      <TipoBadge tipo={item.tipo} />
+                      <span className="font-medium">{item.nombre}</span>
+                      {item.marca && <span className="text-muted-foreground text-xs">· {item.marca}</span>}
+                    </div>
                   </TableCell>
                   <TableCell className="text-sm">{item.unidad}</TableCell>
                   <TableCell className="text-right font-mono text-sm text-emerald-600">

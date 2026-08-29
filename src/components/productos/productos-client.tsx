@@ -40,10 +40,28 @@ function formatARS(n: number) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 }).format(n)
 }
 
+function TipoBadge({ tipo }: { tipo: string }) {
+  if (tipo === 'Producto') {
+    return (
+      <Badge className="bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-100 text-xs font-medium shrink-0">
+        Producto
+      </Badge>
+    )
+  }
+  return (
+    <Badge className="bg-zinc-100 text-zinc-500 border border-zinc-200 hover:bg-zinc-100 text-xs font-medium shrink-0">
+      Insumo
+    </Badge>
+  )
+}
+
+type TipoFiltro = 'todos' | 'Producto' | 'Insumo'
+
 export default function ProductosClient({ initialProductos }: { initialProductos: Producto[] }) {
   const [isPending, startTransition] = useTransition()
   const [productos, setProductos] = useState<Producto[]>(initialProductos)
   const [search, setSearch] = useState('')
+  const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('todos')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [editProducto, setEditProducto] = useState<Producto | null>(null)
@@ -58,14 +76,12 @@ export default function ProductosClient({ initialProductos }: { initialProductos
   const margen = watch('margen') ?? 0
   const precioVenta = +(costo * (1 + margen / 100)).toFixed(2)
 
-  // Calcula el próximo código disponible en base a los productos ya cargados
   function nextCodigo(t: 'Producto' | 'Insumo') {
     const same = productos.filter(p => p.tipo === t)
     if (same.length === 0) return t === 'Insumo' ? 500 : 100
     return Math.max(...same.map(p => p.codigo)) + 1
   }
 
-  // Auto-actualizar código al cambiar tipo (solo en modo creación)
   useEffect(() => {
     if (!editProducto && dialogOpen) {
       setValue('codigo', nextCodigo(tipo))
@@ -73,10 +89,18 @@ export default function ProductosClient({ initialProductos }: { initialProductos
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tipo, editProducto, dialogOpen])
 
+  const counts = {
+    todos:    productos.length,
+    Producto: productos.filter(p => p.tipo === 'Producto').length,
+    Insumo:   productos.filter(p => p.tipo === 'Insumo').length,
+  }
+
   const filtered = productos.filter(p => {
-      const q = search.toLowerCase()
-      return p.nombre.toLowerCase().includes(q) || p.codigo.toString().includes(q)
-    })
+    const q = search.toLowerCase()
+    const matchSearch = p.nombre.toLowerCase().includes(q) || p.codigo.toString().includes(q)
+    const matchTipo   = tipoFiltro === 'todos' || p.tipo === tipoFiltro
+    return matchSearch && matchTipo
+  })
 
   function openCreate() {
     const t = 'Producto'
@@ -100,7 +124,9 @@ export default function ProductosClient({ initialProductos }: { initialProductos
   }
 
   const onSubmit: SubmitHandler<FormValues> = (values) => {
-    const payload = { ...values, margen: values.margen / 100 }
+    // Insumos no tienen margen significativo — se guarda 0
+    const margenDecimal = values.tipo === 'Insumo' ? 0 : values.margen / 100
+    const payload = { ...values, margen: margenDecimal }
     startTransition(async () => {
       try {
         if (editProducto) {
@@ -108,11 +134,11 @@ export default function ProductosClient({ initialProductos }: { initialProductos
           setProductos(prev => prev.map(p =>
             p.id === editProducto.id ? { ...p, ...payload } : p
           ))
-          toast.success('Producto actualizado')
+          toast.success('Guardado')
         } else {
           const created = await createProducto(payload)
           setProductos(prev => [...prev, created].sort((a, b) => a.codigo - b.codigo))
-          toast.success('Producto creado')
+          toast.success(values.tipo === 'Insumo' ? 'Insumo creado' : 'Producto creado')
         }
         setDialogOpen(false)
       } catch (e) {
@@ -128,7 +154,7 @@ export default function ProductosClient({ initialProductos }: { initialProductos
       try {
         await deleteProducto(id)
         setProductos(prev => prev.filter(p => p.id !== id))
-        toast.success('Producto eliminado')
+        toast.success('Eliminado')
         setDeleteId(null)
       } catch {
         toast.error('Error al eliminar')
@@ -140,23 +166,43 @@ export default function ProductosClient({ initialProductos }: { initialProductos
     <div className="p-6 space-y-4 max-w-6xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Productos</h1>
-          <p className="text-muted-foreground text-sm">{initialProductos.length} items en catálogo</p>
+          <h1 className="text-2xl font-bold tracking-tight">Catálogo</h1>
+          <p className="text-muted-foreground text-sm">
+            {counts.Producto} productos · {counts.Insumo} insumos
+          </p>
         </div>
         <Button onClick={openCreate} size="sm">
           <Plus className="h-4 w-4 mr-1" /> Nuevo
         </Button>
       </div>
 
-      {/* Búsqueda */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por código o nombre…"
-          className="pl-9"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+      {/* Búsqueda + filtro tipo */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por código o nombre…"
+            className="pl-9"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-1">
+          {([
+            { key: 'todos',    label: `Todos (${counts.todos})`          },
+            { key: 'Producto', label: `Productos (${counts.Producto})`   },
+            { key: 'Insumo',   label: `Insumos (${counts.Insumo})`       },
+          ] as const).map(({ key, label }) => (
+            <Button
+              key={key}
+              size="sm"
+              variant={tipoFiltro === key ? 'default' : 'outline'}
+              onClick={() => setTipoFiltro(key)}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {/* Tabla */}
@@ -165,7 +211,6 @@ export default function ProductosClient({ initialProductos }: { initialProductos
           <TableHeader>
             <TableRow className="bg-zinc-50">
               <TableHead className="w-16">Cód.</TableHead>
-              <TableHead className="w-24">Tipo</TableHead>
               <TableHead>Nombre</TableHead>
               <TableHead>Marca</TableHead>
               <TableHead className="w-16">Unidad</TableHead>
@@ -178,8 +223,8 @@ export default function ProductosClient({ initialProductos }: { initialProductos
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground py-12">
-                  {search ? 'Sin resultados para esa búsqueda' : 'No hay productos cargados todavía'}
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+                  {search ? 'Sin resultados para esa búsqueda' : 'No hay items en este filtro'}
                 </TableCell>
               </TableRow>
             ) : (
@@ -187,15 +232,23 @@ export default function ProductosClient({ initialProductos }: { initialProductos
                 <TableRow key={p.id} className="hover:bg-zinc-50">
                   <TableCell className="font-mono text-sm">{p.codigo}</TableCell>
                   <TableCell>
-                    <Badge variant={p.tipo === 'Insumo' ? 'secondary' : 'outline'}>{p.tipo}</Badge>
+                    <div className="flex items-center gap-2">
+                      <TipoBadge tipo={p.tipo} />
+                      <span className="font-medium">{p.nombre}</span>
+                    </div>
                   </TableCell>
-                  <TableCell className="font-medium">{p.nombre}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">{p.marca || '—'}</TableCell>
                   <TableCell>{p.unidad}</TableCell>
                   <TableCell className="text-right font-mono text-sm">{formatARS(p.costo)}</TableCell>
-                  <TableCell className="text-right font-mono text-sm">{pct(p.margen)}%</TableCell>
+                  <TableCell className="text-right font-mono text-sm">
+                    {p.tipo === 'Insumo'
+                      ? <span className="text-muted-foreground">—</span>
+                      : `${pct(p.margen)} %`}
+                  </TableCell>
                   <TableCell className="text-right font-mono text-sm font-medium">
-                    {formatARS(p.costo * (1 + p.margen))}
+                    {p.tipo === 'Insumo'
+                      ? <span className="text-muted-foreground">—</span>
+                      : formatARS(p.costo * (1 + p.margen))}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1 justify-end">
@@ -218,7 +271,9 @@ export default function ProductosClient({ initialProductos }: { initialProductos
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{editProducto ? 'Editar producto' : 'Nuevo producto'}</DialogTitle>
+            <DialogTitle>
+              {editProducto ? 'Editar' : 'Nuevo'} {tipo === 'Insumo' ? 'insumo' : 'producto'}
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {/* Tipo + Código */}
@@ -243,7 +298,10 @@ export default function ProductosClient({ initialProductos }: { initialProductos
             {/* Nombre */}
             <div className="space-y-1">
               <Label>Nombre</Label>
-              <Input placeholder="Ej: Almendras (500g)" {...register('nombre')} />
+              <Input
+                placeholder={tipo === 'Insumo' ? 'Ej: Bolsa kraft 1 kg' : 'Ej: Almendras (500 g)'}
+                {...register('nombre')}
+              />
               {errors.nombre && <p className="text-destructive text-xs">{errors.nombre.message}</p>}
             </div>
 
@@ -264,31 +322,35 @@ export default function ProductosClient({ initialProductos }: { initialProductos
               </div>
             </div>
 
-            {/* Costo + Margen */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Costo (+ Margen solo para Producto) */}
+            <div className={tipo === 'Producto' ? 'grid grid-cols-2 gap-3' : ''}>
               <div className="space-y-1">
                 <Label>Costo ($)</Label>
                 <Input type="number" step="0.01" min="0" {...register('costo')} />
                 {errors.costo && <p className="text-destructive text-xs">{errors.costo.message}</p>}
               </div>
-              <div className="space-y-1">
-                <Label>Margen (%)</Label>
-                <Input type="number" step="0.1" min="0" max="100" {...register('margen')} />
-                {errors.margen && <p className="text-destructive text-xs">{errors.margen.message}</p>}
-              </div>
+              {tipo === 'Producto' && (
+                <div className="space-y-1">
+                  <Label>Margen (%)</Label>
+                  <Input type="number" step="0.1" min="0" max="100" {...register('margen')} />
+                  {errors.margen && <p className="text-destructive text-xs">{errors.margen.message}</p>}
+                </div>
+              )}
             </div>
 
-            {/* Precio de venta calculado */}
-            <div className="rounded-md bg-zinc-50 border px-3 py-2 flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Precio de venta</span>
-              <span className="font-bold text-lg">{formatARS(precioVenta)}</span>
-            </div>
+            {/* Precio de venta calculado — solo para Producto */}
+            {tipo === 'Producto' && (
+              <div className="rounded-md bg-zinc-50 border px-3 py-2 flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Precio de venta</span>
+                <span className="font-bold text-lg">{formatARS(precioVenta)}</span>
+              </div>
+            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
               <Button type="submit" disabled={isPending}>
                 {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {editProducto ? 'Guardar cambios' : 'Crear producto'}
+                {editProducto ? 'Guardar cambios' : tipo === 'Insumo' ? 'Crear insumo' : 'Crear producto'}
               </Button>
             </DialogFooter>
           </form>
@@ -299,7 +361,7 @@ export default function ProductosClient({ initialProductos }: { initialProductos
       <AlertDialog open={!!deleteId} onOpenChange={open => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar producto?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar?</AlertDialogTitle>
             <AlertDialogDescription>
               Esta acción eliminará también todas las entradas y salidas asociadas. No se puede deshacer.
             </AlertDialogDescription>
