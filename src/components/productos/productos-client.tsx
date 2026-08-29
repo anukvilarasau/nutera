@@ -201,7 +201,7 @@ export default function ProductosClient({ initialProductos }: { initialProductos
         {proveedores.length > 0 && (
           <Select value={provFiltro || ALL} onValueChange={v => setProvFiltro(v == null || v === ALL ? '' : v)}>
             <SelectTrigger className="h-8 w-44 text-sm">
-              <SelectValue placeholder="Proveedor" />
+              <span>{!provFiltro ? 'Todos los proveedores' : provFiltro}</span>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>Todos los proveedores</SelectItem>
@@ -214,7 +214,7 @@ export default function ProductosClient({ initialProductos }: { initialProductos
         {unidades.length > 1 && (
           <Select value={unidFiltro || ALL} onValueChange={v => setUnidFiltro(v == null || v === ALL ? '' : v)}>
             <SelectTrigger className="h-8 w-36 text-sm">
-              <SelectValue placeholder="Unidad" />
+              <span>{!unidFiltro ? 'Todas las unidades' : unidFiltro}</span>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>Todas las unidades</SelectItem>

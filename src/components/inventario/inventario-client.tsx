@@ -125,7 +125,7 @@ export default function InventarioClient({ inventario }: { inventario: Inventari
         {proveedores.length > 0 && (
           <Select value={provFiltro} onValueChange={v => setProvFiltro(v ?? ALL)}>
             <SelectTrigger className="w-40 text-sm">
-              <SelectValue placeholder="Proveedor" />
+              <span>{provFiltro === ALL ? 'Todos los proveedores' : provFiltro}</span>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>Todos los proveedores</SelectItem>
@@ -140,7 +140,7 @@ export default function InventarioClient({ inventario }: { inventario: Inventari
         {unidades.length > 0 && (
           <Select value={unidFiltro} onValueChange={v => setUnidFiltro(v ?? ALL)}>
             <SelectTrigger className="w-32 text-sm">
-              <SelectValue placeholder="Unidad" />
+              <span>{unidFiltro === ALL ? 'Todas las unidades' : unidFiltro}</span>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>Todas</SelectItem>
@@ -154,7 +154,12 @@ export default function InventarioClient({ inventario }: { inventario: Inventari
         {/* Estado */}
         <Select value={estadoFiltro} onValueChange={v => setEstadoFiltro(v ?? ALL)}>
           <SelectTrigger className="w-36 text-sm">
-            <SelectValue placeholder="Estado" />
+            <span>{{
+              [ALL]:          'Todos los estados',
+              disponible:     'Disponible',
+              bajo:           'Stock bajo',
+              agotado:        'Agotado',
+            }[estadoFiltro] ?? estadoFiltro}</span>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>Todos los estados</SelectItem>
