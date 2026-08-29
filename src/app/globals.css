@@ -5,6 +5,13 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Nutera brand colors (from logo: dark green + orange) */
+  --color-brand:              #1e5929;
+  --color-brand-hover:        #174520;
+  --color-brand-soft:         #e8f5eb;
+  --color-nutera-orange:      #e8720f;
+  --color-nutera-orange-soft: #fff3e6;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);

@@ -1,10 +1,15 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Package, Boxes, PackagePlus, PackageMinus, TrendingUp, LogOut } from 'lucide-react'
+import Image from 'next/image'
+import { usePathname } from 'next/navigation'
+import {
+  LayoutDashboard, Package, Boxes, PackagePlus,
+  PackageMinus, TrendingUp, HelpCircle, LogOut,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase-browser'
+import { useRouter } from 'next/navigation'
 
 const NAV = [
   { href: '/',           label: 'Inicio',     icon: LayoutDashboard },
@@ -15,7 +20,7 @@ const NAV = [
   { href: '/balance',    label: 'Balance',    icon: TrendingUp      },
 ]
 
-export default function NavSidebar({ userEmail }: { userEmail?: string }) {
+export default function NavSidebar() {
   const pathname = usePathname()
   const router   = useRouter()
 
@@ -26,56 +31,66 @@ export default function NavSidebar({ userEmail }: { userEmail?: string }) {
     router.refresh()
   }
 
-  // Mostrar la parte del email antes del @ como nombre corto
-  const displayName = userEmail?.split('@')[0] ?? 'Usuario'
-
   return (
     <>
-      {/* Sidebar desktop */}
-      <aside className="hidden md:flex w-56 shrink-0 flex-col border-r bg-white">
-        <div className="px-4 py-5 border-b">
-          <p className="font-bold text-lg leading-none">Nutera</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Gestión de inventario</p>
+      {/* ── Sidebar desktop ─────────────────────────────── */}
+      <aside className="hidden md:flex w-56 shrink-0 flex-col border-r border-zinc-100 bg-white">
+        {/* Logo + brand */}
+        <div className="flex items-center gap-3 px-4 py-5 border-b border-zinc-100">
+          <Image
+            src="/logonutera.png"
+            alt="Nutera"
+            width={36}
+            height={36}
+            className="rounded-lg shrink-0"
+          />
+          <div className="min-w-0">
+            <p className="font-bold text-base leading-none text-zinc-900">Nutera</p>
+            <p className="text-[11px] text-zinc-400 mt-0.5 leading-none">Gestión de inventario</p>
+          </div>
         </div>
 
-        <nav className="flex-1 p-2 space-y-0.5">
-          {NAV.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                pathname === href
-                  ? 'bg-zinc-900 text-white'
-                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900',
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {label}
-            </Link>
-          ))}
+        {/* Nav */}
+        <nav className="flex-1 p-3 space-y-0.5">
+          {NAV.map(({ href, label, icon: Icon }) => {
+            const active = pathname === href
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
+                  active
+                    ? 'bg-brand text-white'
+                    : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900',
+                )}
+              >
+                <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-white' : 'text-zinc-400')} />
+                {label}
+              </Link>
+            )
+          })}
         </nav>
 
-        {/* Usuario + cerrar sesión */}
-        <div className="border-t p-3">
-          <div className="flex items-center gap-2">
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold truncate">{displayName}</p>
-              <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
+        {/* Help card */}
+        <div className="px-3 pb-3">
+          <div className="rounded-xl bg-brand-soft border border-green-100 p-3.5">
+            <div className="flex items-center gap-2 mb-1.5">
+              <HelpCircle className="h-4 w-4 text-brand shrink-0" />
+              <p className="text-xs font-semibold text-brand">¿Necesitás ayuda?</p>
             </div>
-            <button
-              onClick={handleSignOut}
-              title="Cerrar sesión"
-              className="shrink-0 p-1.5 rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
-            >
-              <LogOut className="h-4 w-4" />
+            <p className="text-xs text-zinc-500 leading-relaxed">
+              Consultá la guía de uso del sistema.
+            </p>
+            <button className="mt-2 text-xs font-semibold text-brand hover:underline">
+              Ver guía →
             </button>
           </div>
         </div>
       </aside>
 
-      {/* Bottom nav mobile / PWA */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 border-t bg-white z-50 flex safe-area-inset-bottom">
+      {/* ── Bottom nav mobile / PWA ──────────────────────── */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 border-t border-zinc-100 bg-white z-50 flex safe-area-inset-bottom">
         {NAV.map(({ href, label, icon: Icon }) => {
           const active = pathname === href
           return (
@@ -84,7 +99,7 @@ export default function NavSidebar({ userEmail }: { userEmail?: string }) {
               href={href}
               className={cn(
                 'flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[10px] font-medium transition-colors',
-                active ? 'text-zinc-900' : 'text-zinc-400',
+                active ? 'text-brand' : 'text-zinc-400',
               )}
             >
               <Icon className={cn('h-5 w-5', active && 'stroke-[2.5]')} />
@@ -94,7 +109,7 @@ export default function NavSidebar({ userEmail }: { userEmail?: string }) {
         })}
         <button
           onClick={handleSignOut}
-          className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[10px] font-medium text-zinc-400 transition-colors hover:text-zinc-700"
+          className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[10px] font-medium text-zinc-400 hover:text-zinc-700 transition-colors"
         >
           <LogOut className="h-5 w-5" />
           Salir
