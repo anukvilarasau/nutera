@@ -6,7 +6,7 @@ export interface Producto {
   codigo: number
   tipo: ProductoTipo
   nombre: string
-  marca: string
+  proveedor: string
   unidad: string
   costo: number
   margen: number
@@ -75,7 +75,7 @@ export interface InventarioItem {
   id: string
   codigo: number
   nombre: string
-  marca: string
+  proveedor: string
   tipo: ProductoTipo
   unidad: string
   costo: number

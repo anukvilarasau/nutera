@@ -17,7 +17,7 @@ export function createProducto(payload: {
   codigo: number
   tipo: 'Producto' | 'Insumo'
   nombre: string
-  marca: string
+  proveedor: string
   unidad: string
   costo: number
   margen: number

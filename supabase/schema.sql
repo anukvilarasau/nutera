@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS productos (
   codigo      INTEGER        NOT NULL UNIQUE,
   tipo        TEXT           NOT NULL DEFAULT 'Producto' CHECK (tipo IN ('Producto', 'Insumo')),
   nombre      TEXT           NOT NULL,
-  marca       TEXT           NOT NULL DEFAULT '',
+  proveedor   TEXT           NOT NULL DEFAULT '',
   unidad      TEXT           NOT NULL DEFAULT 'ud',
   costo       NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (costo >= 0),
   margen      NUMERIC(5, 4)  NOT NULL DEFAULT 0.15 CHECK (margen >= 0),
@@ -56,7 +56,7 @@ SELECT
   p.id,
   p.codigo,
   p.nombre,
-  p.marca,
+  p.proveedor,
   p.tipo,
   p.unidad,
   p.costo,
@@ -73,7 +73,7 @@ SELECT
 FROM productos p
 LEFT JOIN entradas    e  ON e.producto_id  = p.id
 LEFT JOIN venta_items vi ON vi.producto_id = p.id
-GROUP BY p.id, p.codigo, p.nombre, p.marca, p.tipo, p.unidad, p.costo, p.margen
+GROUP BY p.id, p.codigo, p.nombre, p.proveedor, p.tipo, p.unidad, p.costo, p.margen
 ORDER BY p.codigo;
 
 -- ── VISTA DE RENTABILIDAD ─────────────────────────────────────────────────────
