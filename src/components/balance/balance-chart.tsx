@@ -4,14 +4,27 @@ import { useMemo } from 'react'
 import { parseISO, format, differenceInCalendarDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import { BarChart2 } from 'lucide-react'
 
 import type { VentaRentabilidad } from '@/lib/types'
 
-// ── Helpers ──────────────────────────────────────────────────────
+// ── Paleta ───────────────────────────────────────────────────────
+
+const COLOR = {
+  ingreso:      '#1e5929',   // brand green fijo
+  costo:        '#e8720f',   // brand orange fijo
+  gananciaPos:  '#10b981',   // emerald cuando ganancia ≥ 0
+  gananciaNeg:  '#e8720f',   // brand orange cuando ganancia < 0
+} as const
+
+function colorGanancia(v: number) {
+  return v >= 0 ? COLOR.gananciaPos : COLOR.gananciaNeg
+}
+
+// ── Helpers de formato ───────────────────────────────────────────
 
 function formatARS(n: number) {
   return new Intl.NumberFormat('es-AR', {
@@ -30,23 +43,19 @@ function formatARSShort(n: number): string {
 
 type Punto = { key: string; label: string; ingreso: number; costo: number; ganancia: number }
 
-function agrupar(ventas: VentaRentabilidad[], desde: string, hasta: string): {
-  datos: Punto[]
-  porMes: boolean
-} {
-  // Decidir granularidad por cantidad de días del rango
+function agrupar(ventas: VentaRentabilidad[], desde: string, hasta: string): Punto[] {
   let porMes = false
   if (!desde || !hasta) {
-    porMes = true               // "Todo" → agrupamos por mes
+    porMes = true
   } else {
     const diff = differenceInCalendarDays(parseISO(hasta), parseISO(desde))
-    porMes = diff > 62          // más de 2 meses → por mes; de lo contrario por día
+    porMes = diff > 62
   }
 
   const map = new Map<string, Punto>()
 
   for (const v of ventas) {
-    const date = parseISO(v.fecha)
+    const date  = parseISO(v.fecha)
     const key   = porMes ? v.fecha.slice(0, 7) : v.fecha
     const label = porMes
       ? format(date, 'MMM yyyy', { locale: es })
@@ -62,32 +71,38 @@ function agrupar(ventas: VentaRentabilidad[], desde: string, hasta: string): {
     }
   }
 
-  const datos = [...map.values()].sort((a, b) => a.key.localeCompare(b.key))
-  return { datos, porMes }
+  return [...map.values()].sort((a, b) => a.key.localeCompare(b.key))
 }
 
-// ── Tooltip personalizado ────────────────────────────────────────
+// ── Tooltip ──────────────────────────────────────────────────────
+
+type TooltipEntry = { name: string; value: number; fill: string }
 
 function TooltipCustom({ active, payload, label }: {
   active?: boolean
-  payload?: Array<{ name: string; value: number; fill: string }>
+  payload?: TooltipEntry[]
   label?: string
 }) {
   if (!active || !payload?.length) return null
+
   return (
-    <div className="bg-white border border-zinc-200 rounded-xl shadow-lg p-3.5 text-sm min-w-[180px]">
+    <div className="bg-white border border-zinc-200 rounded-xl shadow-lg p-3.5 text-sm min-w-[190px]">
       <p className="font-semibold text-zinc-700 mb-2.5 capitalize">{label}</p>
-      {payload.map(p => (
-        <div key={p.name} className="flex items-center justify-between gap-6 mb-1 last:mb-0">
-          <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: p.fill }} />
-            <span className="text-zinc-500">{p.name}</span>
+      {payload.map(p => {
+        // Para Ganancia: el color del dot refleja si es positivo o negativo
+        const dotColor = p.name === 'Ganancia' ? colorGanancia(p.value) : p.fill
+        return (
+          <div key={p.name} className="flex items-center justify-between gap-6 mb-1.5 last:mb-0">
+            <div className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
+              <span className="text-zinc-500">{p.name}</span>
+            </div>
+            <span className="font-mono font-semibold" style={{ color: dotColor }}>
+              {formatARS(p.value)}
+            </span>
           </div>
-          <span className="font-mono font-semibold text-zinc-800">
-            {formatARS(p.value)}
-          </span>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -103,7 +118,7 @@ export default function BalanceChart({
   desde: string
   hasta: string
 }) {
-  const { datos } = useMemo(
+  const datos = useMemo(
     () => agrupar(ventas, desde, hasta),
     [ventas, desde, hasta],
   )
@@ -146,9 +161,19 @@ export default function BalanceChart({
             iconSize={8}
             wrapperStyle={{ fontSize: 12, paddingTop: 12 }}
           />
-          <Bar dataKey="ingreso"  name="Ingreso"  fill="#1e5929" radius={[4, 4, 0, 0]} maxBarSize={40} />
-          <Bar dataKey="costo"    name="Costo"    fill="#e8720f" radius={[4, 4, 0, 0]} maxBarSize={40} />
-          <Bar dataKey="ganancia" name="Ganancia" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+
+          {/* Ingreso: verde fijo */}
+          <Bar dataKey="ingreso" name="Ingreso" fill={COLOR.ingreso} radius={[4, 4, 0, 0]} maxBarSize={40} />
+
+          {/* Costo: naranja fijo */}
+          <Bar dataKey="costo" name="Costo" fill={COLOR.costo} radius={[4, 4, 0, 0]} maxBarSize={40} />
+
+          {/* Ganancia: verde si ≥ 0, naranja si < 0 — Cell por barra */}
+          <Bar dataKey="ganancia" name="Ganancia" radius={[4, 4, 0, 0]} maxBarSize={40}>
+            {datos.map((d, i) => (
+              <Cell key={i} fill={colorGanancia(d.ganancia)} />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
