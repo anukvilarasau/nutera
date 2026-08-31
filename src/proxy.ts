@@ -28,9 +28,11 @@ export async function proxy(request: NextRequest) {
   // Refresh session — must happen before any redirect logic
   const { data: { user } } = await supabase.auth.getUser()
 
-  const isLoginPage = request.nextUrl.pathname === '/login'
+  const { pathname } = request.nextUrl
+  const isLoginPage  = pathname === '/login'
+  const isPublicApi  = pathname === '/api/keep-alive'
 
-  if (!user && !isLoginPage) {
+  if (!user && !isLoginPage && !isPublicApi) {
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
     return NextResponse.redirect(loginUrl)
