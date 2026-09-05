@@ -1,9 +1,8 @@
 import { randomBytes } from 'crypto'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 
-// Resolve allowed redirect_uris for a client_id.
-// Checks the static env-var client first (no DB round-trip for the existing integration),
-// then falls back to the oauth_clients table for dynamically registered clients.
+// Returns the list of allowed redirect_uris for a given client_id,
+// checking the static env-var client first, then the oauth_clients table.
 async function resolveRedirectUris(clientId: string): Promise<string[] | null> {
   if (clientId === process.env.OAUTH_CLIENT_ID) {
     return ['https://claude.ai/api/mcp/auth_callback']
@@ -18,6 +17,8 @@ async function resolveRedirectUris(clientId: string): Promise<string[] | null> {
 
   return data ? (data.redirect_uris as string[]) : null
 }
+
+// ── GET: validate params + session, then show consent screen ──────────────────
 
 export async function GET(req: Request) {
   const url              = new URL(req.url)
@@ -40,7 +41,6 @@ export async function GET(req: Request) {
     return Response.json({ error: 'invalid_request', error_description: 'PKCE S256 required' }, { status: 400 })
   }
 
-  // Validate client and redirect_uri together
   const allowedUris = await resolveRedirectUris(clientId)
   if (!allowedUris) {
     return Response.json({ error: 'invalid_client' }, { status: 400 })
@@ -49,7 +49,7 @@ export async function GET(req: Request) {
     return Response.json({ error: 'invalid_redirect_uri' }, { status: 400 })
   }
 
-  // Check active Supabase session
+  // Check session; if absent, redirect to login and come back here
   const sb = await createClient()
   const { data: { user } } = await sb.auth.getUser()
 
@@ -59,7 +59,64 @@ export async function GET(req: Request) {
     return Response.redirect(loginUrl.toString(), 302)
   }
 
-  // Generate authorization code (10-minute TTL)
+  // Params are valid and user is authenticated — show consent screen
+  const consentUrl = new URL('/oauth/consent', url.origin)
+  consentUrl.searchParams.set('client_id',             clientId)
+  consentUrl.searchParams.set('redirect_uri',          redirectUri)
+  consentUrl.searchParams.set('code_challenge',        codeChallenge)
+  consentUrl.searchParams.set('code_challenge_method', codeChallengeMethod)
+  if (state) consentUrl.searchParams.set('state',      state)
+
+  return Response.redirect(consentUrl.toString(), 302)
+}
+
+// ── POST: handle consent form submission ──────────────────────────────────────
+
+export async function POST(req: Request) {
+  let body: URLSearchParams
+  try {
+    body = new URLSearchParams(await req.text())
+  } catch {
+    return Response.json({ error: 'invalid_request' }, { status: 400 })
+  }
+
+  const consent             = body.get('consent')
+  const clientId            = body.get('client_id')
+  const redirectUri         = body.get('redirect_uri')
+  const codeChallenge       = body.get('code_challenge')
+  const codeChallengeMethod = body.get('code_challenge_method')
+  const state               = body.get('state')
+
+  // Re-validate everything (hidden fields could be tampered with)
+  if (!clientId || !redirectUri || !codeChallenge || codeChallengeMethod !== 'S256') {
+    return Response.json({ error: 'invalid_request' }, { status: 400 })
+  }
+
+  const allowedUris = await resolveRedirectUris(clientId)
+  if (!allowedUris || !allowedUris.includes(redirectUri)) {
+    return Response.json({ error: 'invalid_client' }, { status: 400 })
+  }
+
+  // Build the base callback URL once; state goes on every response
+  const callback = new URL(redirectUri)
+  if (state) callback.searchParams.set('state', state)
+
+  // User clicked "Cancelar"
+  if (consent !== 'allow') {
+    callback.searchParams.set('error', 'access_denied')
+    return Response.redirect(callback.toString(), 302)
+  }
+
+  // Re-verify session (cookie is still present at POST time)
+  const sb = await createClient()
+  const { data: { user } } = await sb.auth.getUser()
+
+  if (!user) {
+    callback.searchParams.set('error', 'access_denied')
+    return Response.redirect(callback.toString(), 302)
+  }
+
+  // Issue authorization code (10-minute TTL)
   const code      = randomBytes(32).toString('hex')
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
 
@@ -77,9 +134,6 @@ export async function GET(req: Request) {
     return Response.json({ error: 'server_error' }, { status: 500 })
   }
 
-  const callbackUrl = new URL(redirectUri)
-  callbackUrl.searchParams.set('code', code)
-  if (state) callbackUrl.searchParams.set('state', state)
-
-  return Response.redirect(callbackUrl.toString(), 302)
+  callback.searchParams.set('code', code)
+  return Response.redirect(callback.toString(), 302)
 }
