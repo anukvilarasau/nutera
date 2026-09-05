@@ -21,13 +21,13 @@ import type { Producto } from '@/lib/types'
 import type { SubmitHandler } from 'react-hook-form'
 
 const schema = z.object({
-  codigo:    z.coerce.number().min(1, 'Requerido'),
+  codigo:    z.number().min(1, 'Requerido'),
   tipo:      z.enum(['Producto', 'Insumo']),
   nombre:    z.string().min(1, 'Requerido'),
   proveedor: z.string(),
   unidad:    z.string().min(1, 'Requerido'),
-  costo:     z.coerce.number().min(0, 'Debe ser ≥ 0'),
-  margen:    z.coerce.number().min(0).max(100, 'Entre 0 y 100'),
+  costo:     z.number().min(0, 'Debe ser ≥ 0'),
+  margen:    z.number().min(0).max(100, 'Entre 0 y 100'),
 })
 type FormValues = z.infer<typeof schema>
 
@@ -309,7 +309,7 @@ export default function ProductosClient({ initialProductos }: { initialProductos
               </div>
               <div className="space-y-1">
                 <Label>Código</Label>
-                <Input type="number" {...register('codigo')} />
+                <Input type="number" {...register('codigo', { valueAsNumber: true })} />
                 {errors.codigo && <p className="text-destructive text-xs">{errors.codigo.message}</p>}
               </div>
             </div>
@@ -339,13 +339,13 @@ export default function ProductosClient({ initialProductos }: { initialProductos
             <div className={tipo === 'Producto' ? 'grid grid-cols-2 gap-3' : ''}>
               <div className="space-y-1">
                 <Label>Costo ($)</Label>
-                <Input type="number" step="0.01" min="0" {...register('costo')} />
+                <Input type="number" step="0.01" min="0" {...register('costo', { valueAsNumber: true })} />
                 {errors.costo && <p className="text-destructive text-xs">{errors.costo.message}</p>}
               </div>
               {tipo === 'Producto' && (
                 <div className="space-y-1">
                   <Label>Margen (%)</Label>
-                  <Input type="number" step="0.1" min="0" max="100" {...register('margen')} />
+                  <Input type="number" step="0.1" min="0" max="100" {...register('margen', { valueAsNumber: true })} />
                   {errors.margen && <p className="text-destructive text-xs">{errors.margen.message}</p>}
                 </div>
               )}

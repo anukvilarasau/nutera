@@ -24,8 +24,8 @@ import type { Producto, Entrada } from '@/lib/types'
 const schema = z.object({
   producto_id:    z.string().min(1, 'Seleccioná un producto'),
   fecha:          z.string().min(1, 'Requerido'),
-  cantidad:       z.coerce.number().positive('Debe ser mayor a 0'),
-  costo_unitario: z.coerce.number().min(0, 'Debe ser ≥ 0'),
+  cantidad:       z.number().positive('Debe ser mayor a 0'),
+  costo_unitario: z.number().min(0, 'Debe ser ≥ 0'),
 })
 type FormValues = z.infer<typeof schema>
 
@@ -220,12 +220,12 @@ export default function EntradasClient({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Cantidad {selectedProd ? `(${selectedProd.unidad})` : ''}</Label>
-                <Input type="number" step="0.001" min="0.001" {...register('cantidad')} />
+                <Input type="number" step="0.001" min="0.001" {...register('cantidad', { valueAsNumber: true })} />
                 {errors.cantidad && <p className="text-destructive text-xs">{errors.cantidad.message}</p>}
               </div>
               <div className="space-y-1">
                 <Label>Costo unitario ($)</Label>
-                <Input type="number" step="0.01" min="0" {...register('costo_unitario')} />
+                <Input type="number" step="0.01" min="0" {...register('costo_unitario', { valueAsNumber: true })} />
                 {errors.costo_unitario && <p className="text-destructive text-xs">{errors.costo_unitario.message}</p>}
               </div>
             </div>
