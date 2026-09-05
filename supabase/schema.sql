@@ -214,3 +214,26 @@ CREATE POLICY "Permitir todo" ON ventas
 DROP POLICY IF EXISTS "Permitir todo" ON venta_items;
 CREATE POLICY "Permitir todo" ON venta_items
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- ── OAuth 2.0 tables (MCP connector) ──────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS oauth_codes (
+  code            TEXT        PRIMARY KEY,
+  user_id         UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  redirect_uri    TEXT        NOT NULL,
+  code_challenge  TEXT        NOT NULL,
+  expires_at      TIMESTAMPTZ NOT NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS oauth_tokens (
+  access_token  TEXT        PRIMARY KEY,
+  user_id       UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  expires_at    TIMESTAMPTZ NOT NULL,
+  refresh_token TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Only accessible via service-role key (no authenticated user policies needed)
+ALTER TABLE oauth_codes  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE oauth_tokens ENABLE ROW LEVEL SECURITY;

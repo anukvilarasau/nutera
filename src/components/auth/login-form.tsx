@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase-browser'
 
-export default function LoginForm() {
+export default function LoginForm({ next }: { next?: string }) {
   const router = useRouter()
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
@@ -31,7 +31,8 @@ export default function LoginForm() {
       return
     }
 
-    router.push('/')
+    const redirectTo = next && next.startsWith('/') ? next : '/'
+    router.push(redirectTo)
     router.refresh()
   }
 

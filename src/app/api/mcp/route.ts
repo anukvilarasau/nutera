@@ -268,12 +268,39 @@ const mcpHandler = createMcpHandler(
 // ── Auth wrapper + route exports ───────────────────────────────────────────────
 
 async function handler(req: Request): Promise<Response> {
-  const secret = process.env.MCP_SECRET
-  const auth   = req.headers.get('authorization')
-  if (!secret || auth !== `Bearer ${secret}`) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth  = req.headers.get('authorization')
+  const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null
+
+  // Static MCP_SECRET — keeps Claude Code connection working
+  const mcpSecret = process.env.MCP_SECRET
+  if (mcpSecret && token === mcpSecret) {
+    return mcpHandler(req)
   }
-  return mcpHandler(req)
+
+  // OAuth access token — issued by /api/oauth/token
+  if (token) {
+    const sb = createAdminClient()
+    const { data } = await sb
+      .from('oauth_tokens')
+      .select('expires_at')
+      .eq('access_token', token)
+      .single()
+
+    if (data && new Date(data.expires_at) > new Date()) {
+      return mcpHandler(req)
+    }
+  }
+
+  const base = new URL(req.url).origin
+  return Response.json(
+    { error: 'Unauthorized' },
+    {
+      status: 401,
+      headers: {
+        'WWW-Authenticate': `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource"`,
+      },
+    },
+  )
 }
 
 export { handler as GET, handler as POST }

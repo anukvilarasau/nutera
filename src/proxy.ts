@@ -30,7 +30,11 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
   const isLoginPage  = pathname === '/login'
-  const isPublicApi  = pathname === '/api/keep-alive' || pathname.startsWith('/api/mcp')
+  const isPublicApi  =
+    pathname === '/api/keep-alive'          ||
+    pathname.startsWith('/api/mcp')         ||
+    pathname.startsWith('/api/oauth/')      ||
+    pathname.startsWith('/.well-known/')
 
   if (!user && !isLoginPage && !isPublicApi) {
     const loginUrl = request.nextUrl.clone()

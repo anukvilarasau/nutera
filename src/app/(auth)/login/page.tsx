@@ -3,7 +3,13 @@ import LoginForm from '@/components/auth/login-form'
 
 export const metadata = { title: 'Ingresar — Nutera' }
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>
+}) {
+  const { next } = await searchParams
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-zinc-100 p-4">
       <div className="w-full max-w-sm">
@@ -29,7 +35,7 @@ export default function LoginPage() {
 
           <div className="border-t border-zinc-100" />
 
-          <LoginForm />
+          <LoginForm next={next} />
         </div>
 
       </div>
