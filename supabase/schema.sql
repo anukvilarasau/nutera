@@ -237,3 +237,12 @@ CREATE TABLE IF NOT EXISTS oauth_tokens (
 -- Only accessible via service-role key (no authenticated user policies needed)
 ALTER TABLE oauth_codes  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE oauth_tokens ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS oauth_clients (
+  client_id     TEXT        PRIMARY KEY,
+  client_secret TEXT        NOT NULL,
+  redirect_uris JSONB       NOT NULL DEFAULT '[]',
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE oauth_clients ENABLE ROW LEVEL SECURITY;
