@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, Boxes, ShoppingCart,
-  PackageMinus, TrendingUp, HelpCircle, LogOut,
+  PackageMinus, TrendingUp, Bot, HelpCircle, LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase-browser'
@@ -18,6 +18,7 @@ const NAV = [
   { href: '/compras',    label: 'Compras',    icon: ShoppingCart    },
   { href: '/ventas',     label: 'Ventas',     icon: PackageMinus    },
   { href: '/balance',    label: 'Balance',    icon: TrendingUp      },
+  { href: '/mcp',        label: 'MCP',        icon: Bot             },
 ]
 
 export default function NavSidebar() {
